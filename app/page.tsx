@@ -68,6 +68,7 @@ type AramPlayerStat = StatCount & {
 const LINES: LineKey[] = ["탑", "정글", "미드", "원딜", "서폿"];
 
 const tierScores: Record<string, number> = {
+  언랭: 0,
   아이언: 1000,
   브론즈: 1200,
   실버: 1400,
@@ -81,6 +82,7 @@ const tierScores: Record<string, number> = {
 };
 
 const TIER_NAMES = [
+  "언랭",
   "아이언",
   "브론즈",
   "실버",
@@ -98,7 +100,7 @@ const TIER_DIVISIONS = ["4", "3", "2", "1"];
 const HIGH_TIERS = ["마스터", "그랜드마스터", "챌린저"];
 
 const hasTierDivision = (tier: string) => {
-  return !HIGH_TIERS.includes(tier);
+  return tier !== "언랭" && !HIGH_TIERS.includes(tier);
 };
 
 const hasTierPoint = (tier: string) => {
@@ -106,6 +108,10 @@ const hasTierPoint = (tier: string) => {
 };
 
 const getTierText = (tier: string, value: string) => {
+  if (tier === "언랭") {
+    return "언랭";
+  }
+
   if (hasTierPoint(tier)) {
     return `${tier} ${value || "0"}점`;
   }
@@ -137,6 +143,10 @@ const getTierDivisionScore = (tierText: string) => {
   const baseTier = getTierBaseName(tierText);
   const extraNumber = getTierExtraNumber(tierText);
 
+  if (baseTier === "언랭") {
+    return 0;
+  }
+
   if (hasTierPoint(baseTier)) {
     return Math.round(extraNumber * 0.3);
   }
@@ -162,6 +172,14 @@ const parseTierText = (tierText: string) => {
     tier: tier || "골드",
     division: value ? value.replace("점", "") : "4",
   };
+};
+
+const getCurrentTierScore = (currentTierText: string, highestTierText: string) => {
+  if (getTierBaseName(currentTierText) === "언랭") {
+    return getTierScore(highestTierText);
+  }
+
+  return getTierScore(currentTierText);
 };
 
 const getChampionImageUrl = (version: string, image: string) => {
@@ -616,8 +634,11 @@ const updateMember = async (memberId: string) => {
       return 0;
     }
 
-    const currentTierScore = getTierScore(member.current_tier);
-    const highestTierScore = getTierScore(member.highest_tier);
+  const currentTierScore = getCurrentTierScore(
+    member.current_tier,
+    member.highest_tier
+  );
+  const highestTierScore = getTierScore(member.highest_tier);
 
     let lineBonus = -100;
 
@@ -637,7 +658,10 @@ const updateMember = async (memberId: string) => {
     return 0;
   }
 
-  const currentTierScore = getTierScore(member.current_tier);
+  const currentTierScore = getCurrentTierScore(
+    member.current_tier,
+    member.highest_tier
+  );
   const highestTierScore = getTierScore(member.highest_tier);
 
   return Math.round(currentTierScore * 0.75 + highestTierScore * 0.25);
@@ -667,8 +691,14 @@ const updateMember = async (memberId: string) => {
       const aHighestScore = getTierScore(a.member!.highest_tier);
       const bHighestScore = getTierScore(b.member!.highest_tier);
 
-      const aCurrentScore = getTierScore(a.member!.current_tier);
-      const bCurrentScore = getTierScore(b.member!.current_tier);
+      const aCurrentScore = getCurrentTierScore(
+        a.member!.current_tier,
+        a.member!.highest_tier
+      );
+      const bCurrentScore = getCurrentTierScore(
+        b.member!.current_tier,
+        b.member!.highest_tier
+      );
 
       if (bHighestScore !== aHighestScore) {
         return bHighestScore - aHighestScore;
@@ -1781,7 +1811,9 @@ if (!isLoggedIn) {
                           onChange={(e) => {
                             setHighestTier(e.target.value);
 
-                            if (hasTierPoint(e.target.value)) {
+                            if (e.target.value === "언랭") {
+                              setHighestTierDivision("4");
+                            } else if (hasTierPoint(e.target.value)) {
                               setHighestTierDivision("0");
                             } else {
                               setHighestTierDivision("4");
@@ -1793,8 +1825,12 @@ if (!isLoggedIn) {
                           ))}
                         </select>
 
-                        {hasTierPoint(highestTier) ? (
-                          <input
+                          {highestTier === "언랭" ? (
+                            <div className="flex items-center rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 text-slate-500">
+                              없음
+                            </div>
+                          ) : hasTierPoint(highestTier) ? (
+                            <input
                             type="number"
                             min="0"
                             className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
@@ -1830,7 +1866,9 @@ if (!isLoggedIn) {
                           onChange={(e) => {
                             setCurrentTier(e.target.value);
 
-                            if (hasTierPoint(e.target.value)) {
+                            if (e.target.value === "언랭") {
+                              setCurrentTierDivision("4");
+                            } else if (hasTierPoint(e.target.value)) {
                               setCurrentTierDivision("0");
                             } else {
                               setCurrentTierDivision("4");
@@ -1842,8 +1880,12 @@ if (!isLoggedIn) {
                           ))}
                         </select>
 
-                        {hasTierPoint(currentTier) ? (
-                          <input
+                          {currentTier === "언랭" ? (
+                            <div className="flex items-center rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 text-slate-500">
+                              최고티어 적용
+                            </div>
+                          ) : hasTierPoint(currentTier) ? (
+                            <input
                             type="number"
                             min="0"
                             className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
@@ -2056,7 +2098,9 @@ if (!isLoggedIn) {
                                   onChange={(e) => {
                                     setEditHighestTier(e.target.value);
 
-                                    if (hasTierPoint(e.target.value)) {
+                                    if (e.target.value === "언랭") {
+                                      setEditHighestTierDivision("4");
+                                    } else if (hasTierPoint(e.target.value)) {
                                       setEditHighestTierDivision("0");
                                     } else {
                                       setEditHighestTierDivision("4");
@@ -2068,7 +2112,11 @@ if (!isLoggedIn) {
                                   ))}
                                 </select>
 
-                                {hasTierPoint(editHighestTier) ? (
+                                {editHighestTier === "언랭" ? (
+                                  <div className="flex items-center rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 text-slate-500">
+                                    없음
+                                  </div>
+                                ) : hasTierPoint(editHighestTier) ? (
                                   <input
                                     type="number"
                                     min="0"
@@ -2105,7 +2153,9 @@ if (!isLoggedIn) {
                                   onChange={(e) => {
                                     setEditCurrentTier(e.target.value);
 
-                                    if (hasTierPoint(e.target.value)) {
+                                    if (e.target.value === "언랭") {
+                                      setEditCurrentTierDivision("4");
+                                    } else if (hasTierPoint(e.target.value)) {
                                       setEditCurrentTierDivision("0");
                                     } else {
                                       setEditCurrentTierDivision("4");
@@ -2117,7 +2167,11 @@ if (!isLoggedIn) {
                                   ))}
                                 </select>
 
-                                {hasTierPoint(editCurrentTier) ? (
+                                {editCurrentTier === "언랭" ? (
+                                  <div className="flex items-center rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 text-slate-500">
+                                    최고티어 적용
+                                  </div>
+                                ) : hasTierPoint(editCurrentTier) ? (
                                   <input
                                     type="number"
                                     min="0"
