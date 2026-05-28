@@ -1827,7 +1827,7 @@ if (!isLoggedIn) {
 
                           {highestTier === "언랭" ? (
                             <div className="flex items-center rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 text-slate-500">
-                              없음
+                              --
                             </div>
                           ) : hasTierPoint(highestTier) ? (
                             <input
@@ -2114,7 +2114,7 @@ if (!isLoggedIn) {
 
                                 {editHighestTier === "언랭" ? (
                                   <div className="flex items-center rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 text-slate-500">
-                                    없음
+                                    --
                                   </div>
                                 ) : hasTierPoint(editHighestTier) ? (
                                   <input
