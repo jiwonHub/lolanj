@@ -1611,12 +1611,14 @@ if (!isLoggedIn) {
                   </p>
                 </div>
 
-                <button
-                  onClick={() => setIsAddFormOpen(!isAddFormOpen)}
-                  className="rounded-lg bg-blue-600 px-5 py-3 font-semibold hover:bg-blue-500"
-                >
-                  {isAddFormOpen ? "닫기" : "모임원 추가"}
-                </button>
+                {canDeleteMember && (
+                  <button
+                    onClick={() => setIsAddFormOpen(!isAddFormOpen)}
+                    className="rounded-lg bg-blue-600 px-5 py-3 font-semibold hover:bg-blue-500"
+                  >
+                    {isAddFormOpen ? "닫기" : "모임원 추가"}
+                  </button>
+                )}
               </div>
 
               <div
@@ -1673,7 +1675,7 @@ if (!isLoggedIn) {
                         최고티어
                       </label>
 
-                      <div className="grid grid-cols-[1fr_120px] gap-3">
+                      <div className="grid grid-cols-[1fr_240px] gap-3">
                         <select
                           className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
                           value={highestTier}
@@ -1710,7 +1712,7 @@ if (!isLoggedIn) {
                         최고티어
                       </label>
 
-                      <div className="grid grid-cols-[1fr_120px] gap-3">
+                      <div className="grid grid-cols-[1fr_240px] gap-3">
                         <select
                           className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
                           value={highestTier}
