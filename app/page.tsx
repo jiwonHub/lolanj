@@ -1882,7 +1882,7 @@ if (!isLoggedIn) {
 
                           {currentTier === "언랭" ? (
                             <div className="flex items-center rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 text-slate-500">
-                              최고티어 적용
+                              --
                             </div>
                           ) : hasTierPoint(currentTier) ? (
                             <input
@@ -2169,7 +2169,7 @@ if (!isLoggedIn) {
 
                                 {editCurrentTier === "언랭" ? (
                                   <div className="flex items-center rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 text-slate-500">
-                                    최고티어 적용
+                                    --
                                   </div>
                                 ) : hasTierPoint(editCurrentTier) ? (
                                   <input
