@@ -135,6 +135,15 @@ const getTierScore = (tierText: string) => {
   return baseScore + getTierDivisionScore(tierText);
 };
 
+const parseTierText = (tierText: string) => {
+  const [tier, division] = tierText.split(" ");
+
+  return {
+    tier: tier || "골드",
+    division: division || "4",
+  };
+};
+
 const getChampionImageUrl = (version: string, image: string) => {
   return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${image}`;
 };
@@ -230,6 +239,17 @@ export default function Home() {
   const [ddragonVersion, setDdragonVersion] = useState("");
   const [memberStatsSearchName, setMemberStatsSearchName] = useState("");
   const [memberListSearchName, setMemberListSearchName] = useState("");
+
+  const [editingMemberId, setEditingMemberId] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editNickname, setEditNickname] = useState("");
+  const [editHighestTier, setEditHighestTier] = useState("플레티넘");
+  const [editHighestTierDivision, setEditHighestTierDivision] = useState("4");
+  const [editCurrentTier, setEditCurrentTier] = useState("골드");
+  const [editCurrentTierDivision, setEditCurrentTierDivision] = useState("4");
+  const [editMainLine, setEditMainLine] = useState("미드");
+  const [editSubLine, setEditSubLine] = useState("탑");
+  const [editMemo, setEditMemo] = useState("");
 
   const [teamSlots, setTeamSlots] = useState<
     Record<TeamKey, Record<LineKey, string>>
@@ -427,6 +447,65 @@ const [aramMatchResult, setAramMatchResult] = useState<ResultKey>("");
     await fetchMembers();
   };
 
+  const startEditMember = (member: Member) => {
+  const highest = parseTierText(member.highest_tier);
+  const current = parseTierText(member.current_tier);
+
+  setEditingMemberId(member.id);
+  setEditName(member.name);
+  setEditNickname(member.nickname);
+  setEditHighestTier(highest.tier);
+  setEditHighestTierDivision(highest.division);
+  setEditCurrentTier(current.tier);
+  setEditCurrentTierDivision(current.division);
+  setEditMainLine(member.main_line);
+  setEditSubLine(member.sub_line ?? "탑");
+  setEditMemo(member.memo ?? "");
+};
+
+const cancelEditMember = () => {
+  setEditingMemberId("");
+  setEditName("");
+  setEditNickname("");
+  setEditHighestTier("플레티넘");
+  setEditHighestTierDivision("4");
+  setEditCurrentTier("골드");
+  setEditCurrentTierDivision("4");
+  setEditMainLine("미드");
+  setEditSubLine("탑");
+  setEditMemo("");
+};
+
+const updateMember = async (memberId: string) => {
+  if (!editName.trim() || !editNickname.trim()) {
+    alert("이름과 닉네임은 필수입니다.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("members")
+    .update({
+      name: editName.trim(),
+      nickname: editNickname.trim(),
+      highest_tier: getTierText(editHighestTier, editHighestTierDivision),
+      current_tier: getTierText(editCurrentTier, editCurrentTierDivision),
+      main_line: editMainLine,
+      sub_line: editSubLine,
+      memo: editMemo.trim(),
+    })
+    .eq("id", memberId);
+
+  if (error) {
+    console.error("모임원 수정 실패:", error);
+    alert("모임원 수정 실패");
+    return;
+  }
+
+  alert("모임원 수정 완료");
+  cancelEditMember();
+  await fetchMembers();
+};
+
   const updateMemberRole = async (memberId: string, memberRole: string) => {
     const targetMember = members.find((member) => member.id === memberId);
 
@@ -538,8 +617,8 @@ const [aramMatchResult, setAramMatchResult] = useState<ResultKey>("");
     return 0;
   }
 
-  const currentTierScore = tierScores[member.current_tier] ?? 0;
-  const highestTierScore = tierScores[member.highest_tier] ?? 0;
+  const currentTierScore = getTierScore(member.current_tier);
+  const highestTierScore = getTierScore(member.highest_tier);
 
   return Math.round(currentTierScore * 0.75 + highestTierScore * 0.25);
 };
@@ -565,11 +644,11 @@ const [aramMatchResult, setAramMatchResult] = useState<ResultKey>("");
     }
 
     const ace = filledMembers.sort((a, b) => {
-      const aHighestScore = tierScores[a.member!.highest_tier] ?? 0;
-      const bHighestScore = tierScores[b.member!.highest_tier] ?? 0;
+      const aHighestScore = getTierScore(a.member!.highest_tier);
+      const bHighestScore = getTierScore(b.member!.highest_tier);
 
-      const aCurrentScore = tierScores[a.member!.current_tier] ?? 0;
-      const bCurrentScore = tierScores[b.member!.current_tier] ?? 0;
+      const aCurrentScore = getTierScore(a.member!.current_tier);
+      const bCurrentScore = getTierScore(b.member!.current_tier);
 
       if (bHighestScore !== aHighestScore) {
         return bHighestScore - aHighestScore;
@@ -1709,34 +1788,34 @@ if (!isLoggedIn) {
 
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-300">
-                        최고티어
+                        현재티어
                       </label>
 
                       <div className="grid grid-cols-[1fr_260px] gap-3">
                         <select
                           className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
-                          value={highestTier}
+                          value={currentTier}
                           onChange={(e) => {
-                            setHighestTier(e.target.value);
+                            setCurrentTier(e.target.value);
 
                             if (!hasTierDivision(e.target.value)) {
-                              setHighestTierDivision("4");
+                              setCurrentTierDivision("4");
                             }
                           }}
                         >
                           {TIER_NAMES.map((tier) => (
-                            <option key={`highest-${tier}`}>{tier}</option>
+                            <option key={`current-${tier}`}>{tier}</option>
                           ))}
                         </select>
 
                         <select
                           className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none disabled:opacity-40"
-                          value={highestTierDivision}
-                          disabled={!hasTierDivision(highestTier)}
-                          onChange={(e) => setHighestTierDivision(e.target.value)}
+                          value={currentTierDivision}
+                          disabled={!hasTierDivision(currentTier)}
+                          onChange={(e) => setCurrentTierDivision(e.target.value)}
                         >
                           {TIER_DIVISIONS.map((division) => (
-                            <option key={`highest-division-${division}`} value={division}>
+                            <option key={`current-division-${division}`} value={division}>
                               {division}
                             </option>
                           ))}
@@ -1877,6 +1956,15 @@ if (!isLoggedIn) {
 
                             {canDeleteMember && member.member_role !== "모임장" && (
                               <button
+                                onClick={() => startEditMember(member)}
+                                className="rounded-full bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-600"
+                              >
+                                수정
+                              </button>
+                            )}
+
+                            {canDeleteMember && member.member_role !== "모임장" && (
+                              <button
                                 onClick={() => deleteMember(member.id)}
                                 className="rounded-full bg-red-900 px-3 py-1 text-xs font-semibold text-red-300 hover:bg-red-800"
                               >
@@ -1893,10 +1981,149 @@ if (!isLoggedIn) {
                         <p>부 라인: {member.sub_line}</p>
                       </div>
 
-                      {member.memo && (
-                        <p className="mt-3 text-sm text-slate-400">
-                          메모: {member.memo}
-                        </p>
+                      {editingMemberId === member.id && (
+                        <div className="mt-4 rounded-xl border border-blue-900/60 bg-blue-950/20 p-4">
+                          <h4 className="mb-4 font-bold text-blue-300">모임원 정보 수정</h4>
+
+                          <div className="space-y-3">
+                            <input
+                              className="w-full rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                              placeholder="이름"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                            />
+
+                            <input
+                              className="w-full rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                              placeholder="닉네임#태그"
+                              value={editNickname}
+                              onChange={(e) => setEditNickname(e.target.value)}
+                            />
+
+                            <div>
+                              <label className="mb-2 block text-xs font-medium text-slate-300">
+                                최고티어
+                              </label>
+
+                              <div className="grid grid-cols-[1fr_120px] gap-3">
+                                <select
+                                  className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                  value={editHighestTier}
+                                  onChange={(e) => {
+                                    setEditHighestTier(e.target.value);
+
+                                    if (!hasTierDivision(e.target.value)) {
+                                      setEditHighestTierDivision("4");
+                                    }
+                                  }}
+                                >
+                                  {TIER_NAMES.map((tier) => (
+                                    <option key={`edit-highest-${tier}`}>{tier}</option>
+                                  ))}
+                                </select>
+
+                                <select
+                                  className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none disabled:opacity-40"
+                                  value={editHighestTierDivision}
+                                  disabled={!hasTierDivision(editHighestTier)}
+                                  onChange={(e) => setEditHighestTierDivision(e.target.value)}
+                                >
+                                  {TIER_DIVISIONS.map((division) => (
+                                    <option key={`edit-highest-division-${division}`} value={division}>
+                                      {division}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-xs font-medium text-slate-300">
+                                현재티어
+                              </label>
+
+                              <div className="grid grid-cols-[1fr_120px] gap-3">
+                                <select
+                                  className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                  value={editCurrentTier}
+                                  onChange={(e) => {
+                                    setEditCurrentTier(e.target.value);
+
+                                    if (!hasTierDivision(e.target.value)) {
+                                      setEditCurrentTierDivision("4");
+                                    }
+                                  }}
+                                >
+                                  {TIER_NAMES.map((tier) => (
+                                    <option key={`edit-current-${tier}`}>{tier}</option>
+                                  ))}
+                                </select>
+
+                                <select
+                                  className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none disabled:opacity-40"
+                                  value={editCurrentTierDivision}
+                                  disabled={!hasTierDivision(editCurrentTier)}
+                                  onChange={(e) => setEditCurrentTierDivision(e.target.value)}
+                                >
+                                  {TIER_DIVISIONS.map((division) => (
+                                    <option key={`edit-current-division-${division}`} value={division}>
+                                      {division}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <select
+                                className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                value={editMainLine}
+                                onChange={(e) => setEditMainLine(e.target.value)}
+                              >
+                                <option>탑</option>
+                                <option>정글</option>
+                                <option>미드</option>
+                                <option>원딜</option>
+                                <option>서폿</option>
+                              </select>
+
+                              <select
+                                className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                value={editSubLine}
+                                onChange={(e) => setEditSubLine(e.target.value)}
+                              >
+                                <option>탑</option>
+                                <option>정글</option>
+                                <option>미드</option>
+                                <option>원딜</option>
+                                <option>서폿</option>
+                              </select>
+                            </div>
+
+                            <textarea
+                              className="w-full rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                              placeholder="메모"
+                              value={editMemo}
+                              onChange={(e) => setEditMemo(e.target.value)}
+                            />
+
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => updateMember(member.id)}
+                                className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold hover:bg-blue-500"
+                              >
+                                저장
+                              </button>
+
+                              <button
+                                onClick={cancelEditMember}
+                                className="flex-1 rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold hover:bg-slate-600"
+                              >
+                                취소
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </div>
                   ))}
