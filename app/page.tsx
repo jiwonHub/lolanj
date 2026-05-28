@@ -80,6 +80,61 @@ const tierScores: Record<string, number> = {
   챌린저: 3200,
 };
 
+const TIER_NAMES = [
+  "아이언",
+  "브론즈",
+  "실버",
+  "골드",
+  "플레티넘",
+  "에메랄드",
+  "다이아몬드",
+  "마스터",
+  "그랜드마스터",
+  "챌린저",
+];
+
+const TIER_DIVISIONS = ["4", "3", "2", "1"];
+
+const hasTierDivision = (tier: string) => {
+  return !["마스터", "그랜드마스터", "챌린저"].includes(tier);
+};
+
+const getTierText = (tier: string, division: string) => {
+  if (!hasTierDivision(tier)) {
+    return tier;
+  }
+
+  return `${tier} ${division}`;
+};
+
+const getTierBaseName = (tierText: string) => {
+  return tierText.split(" ")[0];
+};
+
+const getTierDivisionScore = (tierText: string) => {
+  const parts = tierText.split(" ");
+  const division = parts[1];
+
+  if (!division) {
+    return 0;
+  }
+
+  const divisionNumber = Number(division);
+
+  if (Number.isNaN(divisionNumber)) {
+    return 0;
+  }
+
+  return (4 - divisionNumber) * 50;
+};
+
+const getTierScore = (tierText: string) => {
+  const baseTier = getTierBaseName(tierText);
+  const baseScore = tierScores[baseTier] ?? 0;
+
+  return baseScore + getTierDivisionScore(tierText);
+};
+
 const getChampionImageUrl = (version: string, image: string) => {
   return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${image}`;
 };
@@ -161,7 +216,9 @@ export default function Home() {
   const [nickname, setNickname] = useState("");
   const [tag, setTag] = useState("");
   const [highestTier, setHighestTier] = useState("플레티넘");
+  const [highestTierDivision, setHighestTierDivision] = useState("4");
   const [currentTier, setCurrentTier] = useState("골드");
+  const [currentTierDivision, setCurrentTierDivision] = useState("4");
   const [mainLine, setMainLine] = useState("미드");
   const [subLine, setSubLine] = useState("탑");
   const [memo, setMemo] = useState("");
@@ -318,8 +375,8 @@ const [aramMatchResult, setAramMatchResult] = useState<ResultKey>("");
     const { error } = await supabase.from("members").insert({
       name: name.trim(),
       nickname: fullNickname,
-      highest_tier: highestTier,
-      current_tier: currentTier,
+      highest_tier: getTierText(highestTier, highestTierDivision),
+      current_tier: getTierText(currentTier, currentTierDivision),
       main_line: mainLine,
       sub_line: subLine,
       memo: memo.trim(),
@@ -340,7 +397,9 @@ const [aramMatchResult, setAramMatchResult] = useState<ResultKey>("");
     setTag("");
     setMemo("");
     setHighestTier("플레티넘");
+    setHighestTierDivision("4");
     setCurrentTier("골드");
+    setCurrentTierDivision("4");
     setMainLine("미드");
     setSubLine("탑");
 
@@ -458,8 +517,8 @@ const [aramMatchResult, setAramMatchResult] = useState<ResultKey>("");
       return 0;
     }
 
-    const currentTierScore = tierScores[member.current_tier] ?? 0;
-    const highestTierScore = tierScores[member.highest_tier] ?? 0;
+    const currentTierScore = getTierScore(member.current_tier);
+    const highestTierScore = getTierScore(member.highest_tier);
 
     let lineBonus = -100;
 
@@ -1613,44 +1672,74 @@ if (!isLoggedIn) {
                       <label className="mb-2 block text-sm font-medium text-slate-300">
                         최고티어
                       </label>
-                      <select
-                        className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
-                        value={highestTier}
-                        onChange={(e) => setHighestTier(e.target.value)}
-                      >
-                        <option>아이언</option>
-                        <option>브론즈</option>
-                        <option>실버</option>
-                        <option>골드</option>
-                        <option>플레티넘</option>
-                        <option>에메랄드</option>
-                        <option>다이아몬드</option>
-                        <option>마스터</option>
-                        <option>그랜드마스터</option>
-                        <option>챌린저</option>
-                      </select>
+
+                      <div className="grid grid-cols-[1fr_120px] gap-3">
+                        <select
+                          className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
+                          value={highestTier}
+                          onChange={(e) => {
+                            setHighestTier(e.target.value);
+
+                            if (!hasTierDivision(e.target.value)) {
+                              setHighestTierDivision("4");
+                            }
+                          }}
+                        >
+                          {TIER_NAMES.map((tier) => (
+                            <option key={`highest-${tier}`}>{tier}</option>
+                          ))}
+                        </select>
+
+                        <select
+                          className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none disabled:opacity-40"
+                          value={highestTierDivision}
+                          disabled={!hasTierDivision(highestTier)}
+                          onChange={(e) => setHighestTierDivision(e.target.value)}
+                        >
+                          {TIER_DIVISIONS.map((division) => (
+                            <option key={`highest-division-${division}`} value={division}>
+                              {division}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-300">
-                        현재티어
+                        최고티어
                       </label>
-                      <select
-                        className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
-                        value={currentTier}
-                        onChange={(e) => setCurrentTier(e.target.value)}
-                      >
-                        <option>아이언</option>
-                        <option>브론즈</option>
-                        <option>실버</option>
-                        <option>골드</option>
-                        <option>플레티넘</option>
-                        <option>에메랄드</option>
-                        <option>다이아몬드</option>
-                        <option>마스터</option>
-                        <option>그랜드마스터</option>
-                        <option>챌린저</option>
-                      </select>
+
+                      <div className="grid grid-cols-[1fr_120px] gap-3">
+                        <select
+                          className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
+                          value={highestTier}
+                          onChange={(e) => {
+                            setHighestTier(e.target.value);
+
+                            if (!hasTierDivision(e.target.value)) {
+                              setHighestTierDivision("4");
+                            }
+                          }}
+                        >
+                          {TIER_NAMES.map((tier) => (
+                            <option key={`highest-${tier}`}>{tier}</option>
+                          ))}
+                        </select>
+
+                        <select
+                          className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none disabled:opacity-40"
+                          value={highestTierDivision}
+                          disabled={!hasTierDivision(highestTier)}
+                          onChange={(e) => setHighestTierDivision(e.target.value)}
+                        >
+                          {TIER_DIVISIONS.map((division) => (
+                            <option key={`highest-division-${division}`} value={division}>
+                              {division}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     <div>
