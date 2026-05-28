@@ -138,7 +138,7 @@ const getTierDivisionScore = (tierText: string) => {
   const extraNumber = getTierExtraNumber(tierText);
 
   if (hasTierPoint(baseTier)) {
-    return extraNumber;
+    return Math.round(extraNumber * 0.3);
   }
 
   if (!extraNumber) {
