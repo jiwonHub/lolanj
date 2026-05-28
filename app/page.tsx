@@ -1675,7 +1675,7 @@ if (!isLoggedIn) {
                         최고티어
                       </label>
 
-                      <div className="grid grid-cols-[1fr_240px] gap-3">
+                      <div className="grid grid-cols-[1fr_300px] gap-3">
                         <select
                           className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
                           value={highestTier}
@@ -1712,7 +1712,7 @@ if (!isLoggedIn) {
                         최고티어
                       </label>
 
-                      <div className="grid grid-cols-[1fr_240px] gap-3">
+                      <div className="grid grid-cols-[1fr_300px] gap-3">
                         <select
                           className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
                           value={highestTier}
