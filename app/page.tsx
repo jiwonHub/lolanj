@@ -95,37 +95,57 @@ const TIER_NAMES = [
 
 const TIER_DIVISIONS = ["4", "3", "2", "1"];
 
+const HIGH_TIERS = ["마스터", "그랜드마스터", "챌린저"];
+
 const hasTierDivision = (tier: string) => {
-  return !["마스터", "그랜드마스터", "챌린저"].includes(tier);
+  return !HIGH_TIERS.includes(tier);
 };
 
-const getTierText = (tier: string, division: string) => {
-  if (!hasTierDivision(tier)) {
-    return tier;
+const hasTierPoint = (tier: string) => {
+  return HIGH_TIERS.includes(tier);
+};
+
+const getTierText = (tier: string, value: string) => {
+  if (hasTierPoint(tier)) {
+    return `${tier} ${value || "0"}점`;
   }
 
-  return `${tier} ${division}`;
+  return `${tier} ${value}`;
 };
 
 const getTierBaseName = (tierText: string) => {
   return tierText.split(" ")[0];
 };
 
+const getTierExtraNumber = (tierText: string) => {
+  const value = tierText.split(" ")[1];
+
+  if (!value) {
+    return 0;
+  }
+
+  const numberValue = Number(value.replace("점", ""));
+
+  if (Number.isNaN(numberValue)) {
+    return 0;
+  }
+
+  return numberValue;
+};
+
 const getTierDivisionScore = (tierText: string) => {
-  const parts = tierText.split(" ");
-  const division = parts[1];
+  const baseTier = getTierBaseName(tierText);
+  const extraNumber = getTierExtraNumber(tierText);
 
-  if (!division) {
+  if (hasTierPoint(baseTier)) {
+    return extraNumber;
+  }
+
+  if (!extraNumber) {
     return 0;
   }
 
-  const divisionNumber = Number(division);
-
-  if (Number.isNaN(divisionNumber)) {
-    return 0;
-  }
-
-  return (4 - divisionNumber) * 50;
+  return (4 - extraNumber) * 50;
 };
 
 const getTierScore = (tierText: string) => {
@@ -136,11 +156,11 @@ const getTierScore = (tierText: string) => {
 };
 
 const parseTierText = (tierText: string) => {
-  const [tier, division] = tierText.split(" ");
+  const [tier, value] = tierText.split(" ");
 
   return {
     tier: tier || "골드",
-    division: division || "4",
+    division: value ? value.replace("점", "") : "4",
   };
 };
 
@@ -1761,7 +1781,9 @@ if (!isLoggedIn) {
                           onChange={(e) => {
                             setHighestTier(e.target.value);
 
-                            if (!hasTierDivision(e.target.value)) {
+                            if (hasTierPoint(e.target.value)) {
+                              setHighestTierDivision("0");
+                            } else {
                               setHighestTierDivision("4");
                             }
                           }}
@@ -1771,18 +1793,28 @@ if (!isLoggedIn) {
                           ))}
                         </select>
 
-                        <select
-                          className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none disabled:opacity-40"
-                          value={highestTierDivision}
-                          disabled={!hasTierDivision(highestTier)}
-                          onChange={(e) => setHighestTierDivision(e.target.value)}
-                        >
-                          {TIER_DIVISIONS.map((division) => (
-                            <option key={`highest-division-${division}`} value={division}>
-                              {division}
-                            </option>
-                          ))}
-                        </select>
+                        {hasTierPoint(highestTier) ? (
+                          <input
+                            type="number"
+                            min="0"
+                            className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
+                            placeholder="점수"
+                            value={highestTierDivision}
+                            onChange={(e) => setHighestTierDivision(e.target.value)}
+                          />
+                        ) : (
+                          <select
+                            className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
+                            value={highestTierDivision}
+                            onChange={(e) => setHighestTierDivision(e.target.value)}
+                          >
+                            {TIER_DIVISIONS.map((division) => (
+                              <option key={`highest-division-${division}`} value={division}>
+                                {division}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </div>
                     </div>
 
@@ -1798,7 +1830,9 @@ if (!isLoggedIn) {
                           onChange={(e) => {
                             setCurrentTier(e.target.value);
 
-                            if (!hasTierDivision(e.target.value)) {
+                            if (hasTierPoint(e.target.value)) {
+                              setCurrentTierDivision("0");
+                            } else {
                               setCurrentTierDivision("4");
                             }
                           }}
@@ -1808,18 +1842,28 @@ if (!isLoggedIn) {
                           ))}
                         </select>
 
-                        <select
-                          className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none disabled:opacity-40"
-                          value={currentTierDivision}
-                          disabled={!hasTierDivision(currentTier)}
-                          onChange={(e) => setCurrentTierDivision(e.target.value)}
-                        >
-                          {TIER_DIVISIONS.map((division) => (
-                            <option key={`current-division-${division}`} value={division}>
-                              {division}
-                            </option>
-                          ))}
-                        </select>
+                        {hasTierPoint(currentTier) ? (
+                          <input
+                            type="number"
+                            min="0"
+                            className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
+                            placeholder="점수"
+                            value={currentTierDivision}
+                            onChange={(e) => setCurrentTierDivision(e.target.value)}
+                          />
+                        ) : (
+                          <select
+                            className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
+                            value={currentTierDivision}
+                            onChange={(e) => setCurrentTierDivision(e.target.value)}
+                          >
+                            {TIER_DIVISIONS.map((division) => (
+                              <option key={`current-division-${division}`} value={division}>
+                                {division}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </div>
                     </div>
 
@@ -2012,7 +2056,9 @@ if (!isLoggedIn) {
                                   onChange={(e) => {
                                     setEditHighestTier(e.target.value);
 
-                                    if (!hasTierDivision(e.target.value)) {
+                                    if (hasTierPoint(e.target.value)) {
+                                      setEditHighestTierDivision("0");
+                                    } else {
                                       setEditHighestTierDivision("4");
                                     }
                                   }}
@@ -2022,18 +2068,28 @@ if (!isLoggedIn) {
                                   ))}
                                 </select>
 
-                                <select
-                                  className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none disabled:opacity-40"
-                                  value={editHighestTierDivision}
-                                  disabled={!hasTierDivision(editHighestTier)}
-                                  onChange={(e) => setEditHighestTierDivision(e.target.value)}
-                                >
-                                  {TIER_DIVISIONS.map((division) => (
-                                    <option key={`edit-highest-division-${division}`} value={division}>
-                                      {division}
-                                    </option>
-                                  ))}
-                                </select>
+                                {hasTierPoint(editHighestTier) ? (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                    placeholder="점수"
+                                    value={editHighestTierDivision}
+                                    onChange={(e) => setEditHighestTierDivision(e.target.value)}
+                                  />
+                                ) : (
+                                  <select
+                                    className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                    value={editHighestTierDivision}
+                                    onChange={(e) => setEditHighestTierDivision(e.target.value)}
+                                  >
+                                    {TIER_DIVISIONS.map((division) => (
+                                      <option key={`edit-highest-division-${division}`} value={division}>
+                                        {division}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
                               </div>
                             </div>
 
@@ -2049,7 +2105,9 @@ if (!isLoggedIn) {
                                   onChange={(e) => {
                                     setEditCurrentTier(e.target.value);
 
-                                    if (!hasTierDivision(e.target.value)) {
+                                    if (hasTierPoint(e.target.value)) {
+                                      setEditCurrentTierDivision("0");
+                                    } else {
                                       setEditCurrentTierDivision("4");
                                     }
                                   }}
@@ -2059,18 +2117,28 @@ if (!isLoggedIn) {
                                   ))}
                                 </select>
 
-                                <select
-                                  className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none disabled:opacity-40"
-                                  value={editCurrentTierDivision}
-                                  disabled={!hasTierDivision(editCurrentTier)}
-                                  onChange={(e) => setEditCurrentTierDivision(e.target.value)}
-                                >
-                                  {TIER_DIVISIONS.map((division) => (
-                                    <option key={`edit-current-division-${division}`} value={division}>
-                                      {division}
-                                    </option>
-                                  ))}
-                                </select>
+                                {hasTierPoint(editCurrentTier) ? (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                    placeholder="점수"
+                                    value={editCurrentTierDivision}
+                                    onChange={(e) => setEditCurrentTierDivision(e.target.value)}
+                                  />
+                                ) : (
+                                  <select
+                                    className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                    value={editCurrentTierDivision}
+                                    onChange={(e) => setEditCurrentTierDivision(e.target.value)}
+                                  >
+                                    {TIER_DIVISIONS.map((division) => (
+                                      <option key={`edit-current-division-${division}`} value={division}>
+                                        {division}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
                               </div>
                             </div>
 
