@@ -540,6 +540,18 @@ const cancelEditMember = () => {
 };
 
 const updateMember = async (memberId: string) => {
+  const targetMember = members.find((member) => member.id === memberId);
+
+  if (!targetMember) {
+    alert("수정할 모임원 정보를 찾을 수 없습니다.");
+    return;
+  }
+
+  if (!canEditTargetMember(targetMember)) {
+    alert("모임장 정보는 모임장만 수정할 수 있습니다.");
+    return;
+  }
+
   if (!editName.trim() || !editNickname.trim()) {
     alert("이름과 닉네임은 필수입니다.");
     return;
@@ -1612,7 +1624,20 @@ const filteredMembers = members
     });
 
 const canDeleteMember = loginUserRole === "모임장" || loginUserRole === "운영진";
+const canEditMember = loginUserRole === "모임장" || loginUserRole === "운영진";
 const canSetMemberRole = loginUserRole === "모임장";
+
+const canEditTargetMember = (member: Member) => {
+  if (loginUserRole === "모임장") {
+    return true;
+  }
+
+  if (loginUserRole === "운영진") {
+    return member.member_role !== "모임장";
+  }
+
+  return false;
+};
 
 if (!isLoggedIn) {
   return (
@@ -2104,7 +2129,7 @@ if (!isLoggedIn) {
                               )
                             )}
 
-                            {canDeleteMember && member.member_role !== "모임장" && (
+                            {canEditMember && canEditTargetMember(member) && (
                               <button
                                 onClick={() => startEditMember(member)}
                                 className="rounded-full bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-600"
