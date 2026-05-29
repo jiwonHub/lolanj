@@ -1548,22 +1548,45 @@ const filteredMemberStats = memberStats.filter((stat) => {
   return stat.name.toLowerCase().includes(keyword);
 });
 
-const filteredMembers = members.filter((member) => {
-  const keyword = memberListSearchName.trim().toLowerCase();
-
-  if (!keyword) {
-    return true;
+const getMemberRolePriority = (memberRole: string | null) => {
+  if (memberRole === "모임장") {
+    return 0;
   }
 
-  return (
-    member.name.toLowerCase().includes(keyword) ||
-    member.nickname.toLowerCase().includes(keyword) ||
-    member.current_tier.toLowerCase().includes(keyword) ||
-    member.highest_tier.toLowerCase().includes(keyword) ||
-    member.main_line.toLowerCase().includes(keyword) ||
-    (member.sub_line ?? "").toLowerCase().includes(keyword)
-  );
-});
+  if (memberRole === "운영진") {
+    return 1;
+  }
+
+  return 2;
+};
+
+const filteredMembers = members
+  .filter((member) => {
+    const keyword = memberListSearchName.trim().toLowerCase();
+
+    if (!keyword) {
+      return true;
+    }
+
+    return (
+      member.name.toLowerCase().includes(keyword) ||
+      member.nickname.toLowerCase().includes(keyword) ||
+      member.current_tier.toLowerCase().includes(keyword) ||
+      member.highest_tier.toLowerCase().includes(keyword) ||
+      member.main_line.toLowerCase().includes(keyword) ||
+      (member.sub_line ?? "").toLowerCase().includes(keyword)
+    );
+  })
+  .sort((a, b) => {
+    const rolePriorityDiff =
+      getMemberRolePriority(a.member_role) - getMemberRolePriority(b.member_role);
+
+    if (rolePriorityDiff !== 0) {
+      return rolePriorityDiff;
+    }
+
+    return a.name.localeCompare(b.name, "ko-KR");
+  });
 
 const canDeleteMember = loginUserRole === "모임장" || loginUserRole === "운영진";
 const canSetMemberRole = loginUserRole === "모임장";
