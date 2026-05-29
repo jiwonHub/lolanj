@@ -69,6 +69,29 @@ const LINES: LineKey[] = ["탑", "정글", "미드", "원딜", "서폿"];
 
 const MEMBER_LINE_OPTIONS = ["상관없음", ...LINES];
 
+const MEMBER_GAME_TYPES = ["협곡", "칼바람", "롤체"];
+
+const getMemberGameTypes = (value: string | null) => {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item);
+};
+
+const toggleMemberGameType = (value: string, gameType: string) => {
+  const gameTypes = getMemberGameTypes(value);
+
+  if (gameTypes.includes(gameType)) {
+    return gameTypes.filter((item) => item !== gameType).join(",");
+  }
+
+  return [...gameTypes, gameType].join(",");
+};
+
 const tierScores: Record<string, number> = {
   언랭: 0,
   아이언: 1000,
@@ -1580,7 +1603,8 @@ const filteredMembers = members
       member.current_tier.toLowerCase().includes(keyword) ||
       member.highest_tier.toLowerCase().includes(keyword) ||
       member.main_line.toLowerCase().includes(keyword) ||
-      (member.sub_line ?? "").toLowerCase().includes(keyword)
+      (member.sub_line ?? "").toLowerCase().includes(keyword) ||
+      (member.memo ?? "").toLowerCase().includes(keyword)
     );
   })
   .sort((a, b) => {
@@ -1977,14 +2001,29 @@ if (!isLoggedIn) {
 
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-300">
-                        메모
+                        게임 유형
                       </label>
-                      <textarea
-                        className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
-                        placeholder="메모"
-                        value={memo}
-                        onChange={(e) => setMemo(e.target.value)}
-                      />
+
+                      <div className="flex flex-wrap gap-2">
+                        {MEMBER_GAME_TYPES.map((gameType) => {
+                          const isChecked = getMemberGameTypes(memo).includes(gameType);
+
+                          return (
+                            <button
+                              key={`game-type-${gameType}`}
+                              type="button"
+                              onClick={() => setMemo(toggleMemberGameType(memo, gameType))}
+                              className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+                                isChecked
+                                  ? "border-blue-500 bg-blue-600 text-white"
+                                  : "border-slate-700 bg-[#111c2e] text-slate-300 hover:bg-slate-800"
+                              }`}
+                            >
+                              {gameType}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <button
@@ -2257,12 +2296,32 @@ if (!isLoggedIn) {
                               </select>
                             </div>
 
-                            <textarea
-                              className="w-full rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
-                              placeholder="메모"
-                              value={editMemo}
-                              onChange={(e) => setEditMemo(e.target.value)}
-                            />
+                            <div>
+                              <label className="mb-2 block text-xs font-medium text-slate-300">
+                                게임 유형
+                              </label>
+
+                              <div className="flex flex-wrap gap-2">
+                                {MEMBER_GAME_TYPES.map((gameType) => {
+                                  const isChecked = getMemberGameTypes(editMemo).includes(gameType);
+
+                                  return (
+                                    <button
+                                      key={`edit-game-type-${gameType}`}
+                                      type="button"
+                                      onClick={() => setEditMemo(toggleMemberGameType(editMemo, gameType))}
+                                      className={`rounded-full border px-3 py-1 text-xs font-bold transition ${
+                                        isChecked
+                                          ? "border-blue-500 bg-blue-600 text-white"
+                                          : "border-slate-700 bg-[#07101f] text-slate-300 hover:bg-slate-800"
+                                      }`}
+                                    >
+                                      {gameType}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
 
                             <div className="flex gap-2">
                               <button
