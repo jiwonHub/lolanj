@@ -936,6 +936,51 @@ export default function Home() {
     }, 0);
   };
 
+  const getLinePreferencePenalty = (member: Member, line: LineKey) => {
+    if (member.main_line === "상관없음") {
+      return 0;
+    }
+
+    if (member.main_line === line) {
+      return 0;
+    }
+
+    if (member.sub_line === "상관없음") {
+      return 30;
+    }
+
+    if (member.sub_line === line) {
+      return 10;
+    }
+
+    return 100;
+  };
+
+  const getTeamLinePreferencePenalty = (teamMembers: Member[]) => {
+    return LINES.reduce((total, line, index) => {
+      return total + getLinePreferencePenalty(teamMembers[index], line);
+    }, 0);
+  };
+
+  const getBestLineupForTeam = (teamMembers: Member[]) => {
+    let bestLineup: Member[] | null = null;
+    let bestScore = Number.MIN_SAFE_INTEGER;
+    let bestPenalty = Number.MAX_SAFE_INTEGER;
+
+    getPermutations(teamMembers).forEach((lineup) => {
+      const score = getTeamScoreByMembers(lineup);
+      const penalty = getTeamLinePreferencePenalty(lineup);
+
+      if (score > bestScore || (score === bestScore && penalty < bestPenalty)) {
+        bestScore = score;
+        bestPenalty = penalty;
+        bestLineup = lineup;
+      }
+    });
+
+    return bestLineup ?? teamMembers;
+  };
+
   const getLineDiffTotalByMembers = (team1Members: Member[], team2Members: Member[]) => {
     return LINES.reduce((total, line, index) => {
       const team1Score = calculateMemberScore(team1Members[index], line);
@@ -975,26 +1020,25 @@ export default function Home() {
         (member) => !team1BaseMembers.some((team1Member) => team1Member.id === member.id)
       );
 
-      const team1Permutations = getPermutations(team1BaseMembers);
-      const team2Permutations = getPermutations(team2BaseMembers);
+      const team1Members = getBestLineupForTeam(team1BaseMembers);
+      const team2Members = getBestLineupForTeam(team2BaseMembers);
 
-      team1Permutations.forEach((team1Members) => {
-        team2Permutations.forEach((team2Members) => {
-          const team1Score = getTeamScoreByMembers(team1Members);
-          const team2Score = getTeamScoreByMembers(team2Members);
-          const teamDiff = Math.abs(team1Score - team2Score);
-          const totalLineDiff = getLineDiffTotalByMembers(team1Members, team2Members);
-          const maxLineDiff = getMaxLineDiffByMembers(team1Members, team2Members);
+      const team1Score = getTeamScoreByMembers(team1Members);
+      const team2Score = getTeamScoreByMembers(team2Members);
+      const teamDiff = Math.abs(team1Score - team2Score);
+      const totalLineDiff = getLineDiffTotalByMembers(team1Members, team2Members);
+      const maxLineDiff = getMaxLineDiffByMembers(team1Members, team2Members);
+      const preferencePenalty =
+        getTeamLinePreferencePenalty(team1Members) + getTeamLinePreferencePenalty(team2Members);
 
-          const balanceScore = teamDiff * 10 + totalLineDiff + maxLineDiff * 2;
+      const balanceScore =
+        teamDiff * 10 + totalLineDiff + maxLineDiff * 2 + preferencePenalty;
 
-          if (balanceScore < bestBalanceScore) {
-            bestBalanceScore = balanceScore;
-            bestTeam1 = team1Members;
-            bestTeam2 = team2Members;
-          }
-        });
-      });
+      if (balanceScore < bestBalanceScore) {
+        bestBalanceScore = balanceScore;
+        bestTeam1 = team1Members;
+        bestTeam2 = team2Members;
+      }
     });
 
     if (!bestTeam1 || !bestTeam2) {
@@ -2639,8 +2683,8 @@ export default function Home() {
                     onClick={autoBalanceTeams}
                     disabled={!canAutoBalanceTeams}
                     className={`rounded-lg px-5 py-3 font-semibold ${canAutoBalanceTeams
-                        ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                        : "cursor-not-allowed bg-slate-700 text-slate-400"
+                      ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                      : "cursor-not-allowed bg-slate-700 text-slate-400"
                       }`}
                   >
                     자동 팀짜기
@@ -2650,10 +2694,10 @@ export default function Home() {
                     <p className="text-xs text-slate-400">밸런스 결과</p>
                     <p
                       className={`mt-1 text-lg font-bold ${getTeamTotalScore("team1") === getTeamTotalScore("team2")
-                          ? "text-slate-200"
-                          : getTeamTotalScore("team1") > getTeamTotalScore("team2")
-                            ? "text-blue-400"
-                            : "text-red-400"
+                        ? "text-slate-200"
+                        : getTeamTotalScore("team1") > getTeamTotalScore("team2")
+                          ? "text-blue-400"
+                          : "text-red-400"
                         }`}
                     >
                       {getTeamResultText()}
