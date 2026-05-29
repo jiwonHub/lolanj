@@ -1672,7 +1672,7 @@ const aramMemberStats = buildAramMemberStats();
 const totalMemberStats = buildTotalMemberStats();
 
 const mostPickedChampionText = getMostPickedChampionText();
-const bestWinRatePlayerText = getBestWinRatePlayerText(totalMemberStats);
+const bestWinRatePlayerText = getBestWinRatePlayerText(memberStats);
 const aramMostPickedChampionText = getAramMostPickedChampionText();
 const aramBestWinRatePlayerText = getAramBestWinRatePlayerText(aramMemberStats);
 const aramParticipantsCount = getAramParticipantsCount();
