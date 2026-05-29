@@ -3896,10 +3896,11 @@ if (!isLoggedIn) {
       </div>
     </div>
 
-    {filteredMemberStats.map((stat) => {
-      const isExpanded = expandedMemberName === stat.name;
+      {filteredMemberStats.map((stat) => {
+        const isExpanded = expandedMemberName === stat.name;
+        const canyonStat = memberStats.find((item) => item.name === stat.name);
 
-      return (
+        return (
         <div
           key={stat.name}
           className="rounded-2xl border border-slate-800 bg-[#111c2e] p-5"
@@ -3910,19 +3911,19 @@ if (!isLoggedIn) {
 
               <div className="mt-3 flex items-center gap-3">
                 <span className="rounded-lg bg-slate-900 px-4 py-2 text-lg font-bold text-slate-100">
-                  협곡 {stat.games}전
+                  협곡 {canyonStat?.games ?? 0}전
                 </span>
 
                 <span className="rounded-lg bg-blue-900/50 px-4 py-2 text-lg font-bold text-blue-200">
-                  {stat.wins}승
+                  {canyonStat?.wins ?? 0}승
                 </span>
 
                 <span className="rounded-lg bg-red-900/50 px-4 py-2 text-lg font-bold text-red-200">
-                  {stat.losses}패
+                  {canyonStat?.losses ?? 0}패
                 </span>
 
                 <span className="rounded-lg bg-emerald-900/40 px-4 py-2 text-lg font-bold text-emerald-200">
-                  승률 {getWinRate(stat.wins, stat.games)}%
+                  승률 {getWinRate(canyonStat?.wins ?? 0, canyonStat?.games ?? 0)}%
                 </span>
               </div>
 
@@ -3969,9 +3970,9 @@ if (!isLoggedIn) {
                 <h4 className="mb-4 font-bold">협곡 챔피언별 전적</h4>
 
                 <div className="space-y-3">
-                  {Object.entries(stat.championStats)
-                    .sort((a, b) => b[1].games - a[1].games)
-                    .map(([champion, championStat]) => (
+                    {Object.entries(canyonStat?.championStats ?? {})
+                      .sort((a, b) => b[1].games - a[1].games)
+                      .map(([champion, championStat]) => (
                       <div
                         key={`${stat.name}-${champion}`}
                         className="flex items-center justify-between rounded-lg border border-slate-800 bg-[#111c2e] p-3"
@@ -4014,7 +4015,7 @@ if (!isLoggedIn) {
                 <h4 className="mb-4 font-bold">라인별 성적</h4>
 
                 <div className="space-y-3">
-                  {Object.entries(stat.lineStats)
+                  {Object.entries(canyonStat?.lineStats ?? {})
                     .sort((a, b) => b[1].games - a[1].games)
                     .map(([line, lineStat]) => (
                       <div
@@ -4049,7 +4050,7 @@ if (!isLoggedIn) {
                 <h4 className="mb-4 font-bold">상대별 전적</h4>
 
                 <div className="space-y-3">
-                  {Object.entries(stat.opponentStats)
+                  {Object.entries(canyonStat?.opponentStats ?? {})
                     .sort((a, b) => b[1].games - a[1].games)
                     .map(([opponent, opponentStat]) => (
                       <div
