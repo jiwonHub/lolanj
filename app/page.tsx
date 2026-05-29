@@ -1607,16 +1607,9 @@ const filteredMembers = members
       (member.memo ?? "").toLowerCase().includes(keyword)
     );
   })
-  .sort((a, b) => {
-    const rolePriorityDiff =
-      getMemberRolePriority(a.member_role) - getMemberRolePriority(b.member_role);
-
-    if (rolePriorityDiff !== 0) {
-      return rolePriorityDiff;
-    }
-
-    return a.name.localeCompare(b.name, "ko-KR");
-  });
+    .sort((a, b) => {
+      return getMemberRolePriority(a.member_role) - getMemberRolePriority(b.member_role);
+    });
 
 const canDeleteMember = loginUserRole === "모임장" || loginUserRole === "운영진";
 const canSetMemberRole = loginUserRole === "모임장";
