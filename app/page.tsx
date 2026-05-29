@@ -67,6 +67,8 @@ type AramPlayerStat = StatCount & {
 
 const LINES: LineKey[] = ["탑", "정글", "미드", "원딜", "서폿"];
 
+const MEMBER_LINE_OPTIONS = ["상관없음", ...LINES];
+
 const tierScores: Record<string, number> = {
   언랭: 0,
   아이언: 1000,
@@ -642,8 +644,12 @@ const updateMember = async (memberId: string) => {
 
     let lineBonus = -100;
 
-    if (member.main_line === line) {
+    if (member.main_line === "상관없음") {
+      lineBonus = 0;
+    } else if (member.main_line === line) {
       lineBonus = 120;
+    } else if (member.sub_line === "상관없음") {
+      lineBonus = 0;
     } else if (member.sub_line === line) {
       lineBonus = 60;
     }
@@ -1936,34 +1942,37 @@ if (!isLoggedIn) {
                       <label className="mb-2 block text-sm font-medium text-slate-300">
                         주라인
                       </label>
-                      <select
-                        className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
-                        value={mainLine}
-                        onChange={(e) => setMainLine(e.target.value)}
-                      >
-                        <option>탑</option>
-                        <option>정글</option>
-                        <option>미드</option>
-                        <option>원딜</option>
-                        <option>서폿</option>
-                      </select>
+                        <select
+                          className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
+                          value={mainLine}
+                          onChange={(e) => {
+                            setMainLine(e.target.value);
+
+                            if (e.target.value === "상관없음") {
+                              setSubLine("상관없음");
+                            }
+                          }}
+                        >
+                          {MEMBER_LINE_OPTIONS.map((line) => (
+                            <option key={`main-line-${line}`}>{line}</option>
+                          ))}
+                        </select>
                     </div>
 
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-300">
                         부라인
                       </label>
-                      <select
-                        className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
-                        value={subLine}
-                        onChange={(e) => setSubLine(e.target.value)}
-                      >
-                        <option>탑</option>
-                        <option>정글</option>
-                        <option>미드</option>
-                        <option>원딜</option>
-                        <option>서폿</option>
-                      </select>
+                        <select
+                          className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
+                          value={subLine}
+                          onChange={(e) => setSubLine(e.target.value)}
+                          disabled={mainLine === "상관없음"}
+                        >
+                          {MEMBER_LINE_OPTIONS.map((line) => (
+                            <option key={`sub-line-${line}`}>{line}</option>
+                          ))}
+                        </select>
                     </div>
 
                     <div>
@@ -2223,25 +2232,28 @@ if (!isLoggedIn) {
                               <select
                                 className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
                                 value={editMainLine}
-                                onChange={(e) => setEditMainLine(e.target.value)}
+                                onChange={(e) => {
+                                  setEditMainLine(e.target.value);
+
+                                  if (e.target.value === "상관없음") {
+                                    setEditSubLine("상관없음");
+                                  }
+                                }}
                               >
-                                <option>탑</option>
-                                <option>정글</option>
-                                <option>미드</option>
-                                <option>원딜</option>
-                                <option>서폿</option>
+                                {MEMBER_LINE_OPTIONS.map((line) => (
+                                  <option key={`edit-main-line-${line}`}>{line}</option>
+                                ))}
                               </select>
 
                               <select
                                 className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
                                 value={editSubLine}
                                 onChange={(e) => setEditSubLine(e.target.value)}
+                                disabled={editMainLine === "상관없음"}
                               >
-                                <option>탑</option>
-                                <option>정글</option>
-                                <option>미드</option>
-                                <option>원딜</option>
-                                <option>서폿</option>
+                                {MEMBER_LINE_OPTIONS.map((line) => (
+                                  <option key={`edit-sub-line-${line}`}>{line}</option>
+                                ))}
                               </select>
                             </div>
 
