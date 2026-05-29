@@ -1550,6 +1550,103 @@ const buildAramMemberStats = () => {
   return statMap;
 };
 
+const buildTotalMemberStats = () => {
+  const totalStatMap: Record<string, PlayerStat> = {};
+
+  const getOrCreateTotalStat = (playerName: string) => {
+    if (!totalStatMap[playerName]) {
+      totalStatMap[playerName] = {
+        name: playerName,
+        games: 0,
+        wins: 0,
+        losses: 0,
+        championStats: {},
+        lineStats: {},
+        opponentStats: {},
+      };
+    }
+
+    return totalStatMap[playerName];
+  };
+
+  buildMemberStats().forEach((stat) => {
+    const totalStat = getOrCreateTotalStat(stat.name);
+
+    totalStat.games += stat.games;
+    totalStat.wins += stat.wins;
+    totalStat.losses += stat.losses;
+
+    Object.entries(stat.championStats).forEach(([champion, championStat]) => {
+      if (!totalStat.championStats[champion]) {
+        totalStat.championStats[champion] = createEmptyStatCount();
+      }
+
+      totalStat.championStats[champion].games += championStat.games;
+      totalStat.championStats[champion].wins += championStat.wins;
+      totalStat.championStats[champion].losses += championStat.losses;
+    });
+
+    Object.entries(stat.lineStats).forEach(([line, lineStat]) => {
+      if (!lineStat) {
+        return;
+      }
+
+      const lineKey = line as LineKey;
+
+      if (!totalStat.lineStats[lineKey]) {
+        totalStat.lineStats[lineKey] = createEmptyStatCount();
+      }
+
+      totalStat.lineStats[lineKey]!.games += lineStat.games;
+      totalStat.lineStats[lineKey]!.wins += lineStat.wins;
+      totalStat.lineStats[lineKey]!.losses += lineStat.losses;
+    });
+
+    Object.entries(stat.opponentStats).forEach(([opponent, opponentStat]) => {
+      if (!totalStat.opponentStats[opponent]) {
+        totalStat.opponentStats[opponent] = createEmptyStatCount();
+      }
+
+      totalStat.opponentStats[opponent].games += opponentStat.games;
+      totalStat.opponentStats[opponent].wins += opponentStat.wins;
+      totalStat.opponentStats[opponent].losses += opponentStat.losses;
+    });
+  });
+
+  Object.entries(buildAramMemberStats()).forEach(([playerName, aramStat]) => {
+    const totalStat = getOrCreateTotalStat(playerName);
+
+    totalStat.games += aramStat.games;
+    totalStat.wins += aramStat.wins;
+    totalStat.losses += aramStat.losses;
+
+    Object.entries(aramStat.championStats).forEach(([champion, championStat]) => {
+      if (!totalStat.championStats[champion]) {
+        totalStat.championStats[champion] = createEmptyStatCount();
+      }
+
+      totalStat.championStats[champion].games += championStat.games;
+      totalStat.championStats[champion].wins += championStat.wins;
+      totalStat.championStats[champion].losses += championStat.losses;
+    });
+  });
+
+  return Object.values(totalStatMap).sort((a, b) => {
+    const bRate = b.games === 0 ? 0 : b.wins / b.games;
+    const aRate = a.games === 0 ? 0 : a.wins / a.games;
+
+    if (b.games !== a.games) {
+      return b.games - a.games;
+    }
+
+    if (bRate !== aRate) {
+      return bRate - aRate;
+    }
+
+    return a.name.localeCompare(b.name, "ko-KR");
+  });
+};
+
 const getAramParticipantsCount = () => {
   const playerSet = new Set<string>();
 
@@ -1571,15 +1668,16 @@ const getAramParticipantsCount = () => {
 };
 
 const memberStats = buildMemberStats();
-const mostPickedChampionText = getMostPickedChampionText();
-const bestWinRatePlayerText = getBestWinRatePlayerText(memberStats);
-
 const aramMemberStats = buildAramMemberStats();
+const totalMemberStats = buildTotalMemberStats();
+
+const mostPickedChampionText = getMostPickedChampionText();
+const bestWinRatePlayerText = getBestWinRatePlayerText(totalMemberStats);
 const aramMostPickedChampionText = getAramMostPickedChampionText();
 const aramBestWinRatePlayerText = getAramBestWinRatePlayerText(aramMemberStats);
 const aramParticipantsCount = getAramParticipantsCount();
 
-const filteredMemberStats = memberStats.filter((stat) => {
+const filteredMemberStats = totalMemberStats.filter((stat) => {
   const keyword = memberStatsSearchName.trim().toLowerCase();
 
   if (!keyword) {
