@@ -112,6 +112,7 @@ export default function Home() {
   const [ddragonVersion, setDdragonVersion] = useState("");
   const [memberStatsSearchName, setMemberStatsSearchName] = useState("");
   const [memberListSearchName, setMemberListSearchName] = useState("");
+  const [memberListPage, setMemberListPage] = useState(1);
 
   const [editingMemberId, setEditingMemberId] = useState("");
   const [editName, setEditName] = useState("");
@@ -1080,6 +1081,16 @@ export default function Home() {
       return getMemberRolePriority(a.member_role) - getMemberRolePriority(b.member_role);
     });
 
+  const memberListPageSize = 10;
+  const memberListTotalPages = Math.max(
+    1,
+    Math.ceil(filteredMembers.length / memberListPageSize)
+  );
+  const pagedMembers = filteredMembers.slice(
+    (memberListPage - 1) * memberListPageSize,
+    memberListPage * memberListPageSize
+  );
+
   const canDeleteMember = loginUserRole === "모임장" || loginUserRole === "운영진";
   const canEditMember = loginUserRole === "모임장" || loginUserRole === "운영진";
   const canSetMemberRole = loginUserRole === "모임장";
@@ -1516,12 +1527,15 @@ export default function Home() {
                     className="w-80 rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
                     placeholder="이름 / 닉네임 / 티어 / 라인 검색"
                     value={memberListSearchName}
-                    onChange={(e) => setMemberListSearchName(e.target.value)}
+                    onChange={(e) => {
+                      setMemberListSearchName(e.target.value);
+                      setMemberListPage(1);
+                    }}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  {filteredMembers.map((member) => (
+                  {pagedMembers.map((member) => (
                     <div
                       key={member.id}
                       className="rounded-xl border border-slate-800 bg-[#111c2e] p-4"
@@ -1821,6 +1835,50 @@ export default function Home() {
                     <p className="text-slate-400">
                       등록된 모임원이 없습니다.
                     </p>
+                  )}
+                  {filteredMembers.length > 0 && (
+                    <div className="mt-6 flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => setMemberListPage((page) => Math.max(1, page - 1))}
+                        disabled={memberListPage === 1}
+                        className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === 1
+                            ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
+                            : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
+                          }`}
+                      >
+                        ◀
+                      </button>
+
+                      {Array.from({ length: memberListTotalPages }).map((_, index) => {
+                        const page = index + 1;
+
+                        return (
+                          <button
+                            key={`member-list-page-${page}`}
+                            onClick={() => setMemberListPage(page)}
+                            className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === page
+                                ? "border-blue-500 bg-blue-600 text-white"
+                                : "border-slate-700 bg-[#111c2e] text-slate-300 hover:bg-slate-800"
+                              }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      })}
+
+                      <button
+                        onClick={() =>
+                          setMemberListPage((page) => Math.min(memberListTotalPages, page + 1))
+                        }
+                        disabled={memberListPage === memberListTotalPages}
+                        className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === memberListTotalPages
+                            ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
+                            : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
+                          }`}
+                      >
+                        ▶
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
