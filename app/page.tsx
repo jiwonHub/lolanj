@@ -1,280 +1,90 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import {
+  clearLoginSessionCookie,
+  clearRememberedLogin,
+  getLoginSessionCookie,
+  getRememberedLogin,
+  loginAccount,
+  saveRememberedLogin,
+  setLoginSessionCookie,
+} from "../features/auth/authService";
 
-type Member = {
-  id: string;
-  name: string;
-  nickname: string;
-  highest_tier: string;
-  current_tier: string;
-  main_line: string;
-  sub_line: string | null;
-  memo: string | null;
-  is_active: boolean;
-  member_role: string | null;
-};
+import {
+  addMemberApi,
+  clearOwnerRoleApi,
+  deleteMemberApi,
+  fetchMembersApi,
+  updateMemberApi,
+  updateMemberRoleApi,
+} from "../features/members/memberService";
 
-type LineKey = "탑" | "정글" | "미드" | "원딜" | "서폿";
-type TeamKey = "team1" | "team2";
-type ResultKey = "team1" | "team2" | "";
+import {
+  deleteAramMatchRecordApi,
+  deleteMatchRecordApi,
+  fetchAramMatchRecordsApi,
+  fetchMatchRecordsApi,
+  saveAramMatchRecordApi,
+  saveMatchRecordApi,
+} from "../features/records/recordService";
 
-type Champion = {
-  id: string;
-  name: string;
-  image: string;
-};
+import type {
+  AramMatchRecord,
+  AramPlayerStat,
+  Champion,
+  LineKey,
+  MatchRecord,
+  Member,
+  PlayerStat,
+  ResultKey,
+  StatCount,
+  TeamKey,
+} from "../shared/types";
 
-type MatchRecord = {
-  id: string;
-  title: string | null;
-  team1: Record<LineKey, { player: string; champion: string }>;
-  team2: Record<LineKey, { player: string; champion: string }>;
-  line_results: Record<LineKey, ResultKey>;
-  match_result: ResultKey;
-  created_at: string;
-};
+import {
+  LINES,
+  MEMBER_GAME_TYPES,
+  MEMBER_LINE_OPTIONS,
+  TIER_DIVISIONS,
+  TIER_NAMES,
+  aramChampionPositions,
+  championPositions,
+  LOGIN_SESSION_COOKIE_NAME,
+  REMEMBER_LOGIN_STORAGE_KEY,
+} from "../shared/constants";
 
-type AramMatchRecord = {
-  id: string;
-  title: string | null;
-  team1: { player: string; champion: string }[];
-  team2: { player: string; champion: string }[];
-  match_result: ResultKey;
-  created_at: string;
-};
+import {
+  getCurrentTierScore,
+  getTierScore,
+  getTierText,
+  hasTierPoint,
+  parseTierText,
+} from "../shared/tier";
 
-type StatCount = {
-  games: number;
-  wins: number;
-  losses: number;
-};
+import {
+  calculateAramMemberScore,
+  calculateAutoBalancedTeamSlots,
+  calculateMemberScore,
+} from "../features/balance/balanceCalculator";
 
-type PlayerStat = {
-  name: string;
-  games: number;
-  wins: number;
-  losses: number;
-  championStats: Record<string, StatCount>;
-  lineStats: Partial<Record<LineKey, StatCount>>;
-  opponentStats: Record<string, StatCount>;
-};
+import {
+  buildAramMemberStats,
+  buildMemberStats,
+  buildTotalMemberStats,
+  getAramBestWinRatePlayerText,
+  getAramMostPickedChampionText,
+  getAramParticipantsCount,
+  getBestWinRatePlayerText,
+  getMostPickedChampionText,
+  getWinRate,
+} from "../features/stats/statsCalculator";
 
-type AramPlayerStat = StatCount & {
-  championStats: Record<string, StatCount>;
-};
-
-const LINES: LineKey[] = ["탑", "정글", "미드", "원딜", "서폿"];
-
-const MEMBER_LINE_OPTIONS = ["상관없음", ...LINES];
-
-const MEMBER_GAME_TYPES = ["협곡", "칼바람", "롤체"];
-
-const getMemberGameTypes = (value: string | null) => {
-  if (!value) {
-    return [];
-  }
-
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item);
-};
-
-const toggleMemberGameType = (value: string, gameType: string) => {
-  const gameTypes = getMemberGameTypes(value);
-
-  if (gameTypes.includes(gameType)) {
-    return gameTypes.filter((item) => item !== gameType).join(",");
-  }
-
-  return [...gameTypes, gameType].join(",");
-};
-
-const tierScores: Record<string, number> = {
-  언랭: 0,
-  아이언: 1000,
-  브론즈: 1200,
-  실버: 1400,
-  골드: 1600,
-  플레티넘: 1800,
-  에메랄드: 2000,
-  다이아몬드: 2300,
-  마스터: 2600,
-  그랜드마스터: 2900,
-  챌린저: 3200,
-};
-
-const TIER_NAMES = [
-  "언랭",
-  "아이언",
-  "브론즈",
-  "실버",
-  "골드",
-  "플레티넘",
-  "에메랄드",
-  "다이아몬드",
-  "마스터",
-  "그랜드마스터",
-  "챌린저",
-];
-
-const TIER_DIVISIONS = ["4", "3", "2", "1"];
-
-const HIGH_TIERS = ["마스터", "그랜드마스터", "챌린저"];
-
-const hasTierDivision = (tier: string) => {
-  return tier !== "언랭" && !HIGH_TIERS.includes(tier);
-};
-
-const hasTierPoint = (tier: string) => {
-  return HIGH_TIERS.includes(tier);
-};
-
-const getTierText = (tier: string, value: string) => {
-  if (tier === "언랭") {
-    return "언랭";
-  }
-
-  if (hasTierPoint(tier)) {
-    return `${tier} ${value || "0"}점`;
-  }
-
-  return `${tier} ${value}`;
-};
-
-const getTierBaseName = (tierText: string) => {
-  return tierText.split(" ")[0];
-};
-
-const getTierExtraNumber = (tierText: string) => {
-  const value = tierText.split(" ")[1];
-
-  if (!value) {
-    return 0;
-  }
-
-  const numberValue = Number(value.replace("점", ""));
-
-  if (Number.isNaN(numberValue)) {
-    return 0;
-  }
-
-  return numberValue;
-};
-
-const getTierDivisionScore = (tierText: string) => {
-  const baseTier = getTierBaseName(tierText);
-  const extraNumber = getTierExtraNumber(tierText);
-
-  if (baseTier === "언랭") {
-    return 0;
-  }
-
-  if (hasTierPoint(baseTier)) {
-    return Math.round(extraNumber * 0.3);
-  }
-
-  if (!extraNumber) {
-    return 0;
-  }
-
-  return (4 - extraNumber) * 50;
-};
-
-const getTierScore = (tierText: string) => {
-  const baseTier = getTierBaseName(tierText);
-  const baseScore = tierScores[baseTier] ?? 0;
-
-  return baseScore + getTierDivisionScore(tierText);
-};
-
-const parseTierText = (tierText: string) => {
-  const [tier, value] = tierText.split(" ");
-
-  return {
-    tier: tier || "골드",
-    division: value ? value.replace("점", "") : "4",
-  };
-};
-
-const getCurrentTierScore = (currentTierText: string, highestTierText: string) => {
-  if (getTierBaseName(currentTierText) === "언랭") {
-    return getTierScore(highestTierText);
-  }
-
-  return getTierScore(currentTierText);
-};
-
-const getChampionImageUrl = (version: string, image: string) => {
-  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${image}`;
-};
-
-const championPositions: Record<TeamKey, Record<LineKey, string>> = {
-  team1: {
-    탑: "left-[10%] top-[24%]",
-    정글: "left-[30%] top-[40%]",
-    미드: "left-[45%] top-[57%]",
-    원딜: "left-[80%] top-[90%]",
-    서폿: "left-[65%] top-[90%]",
-  },
-  team2: {
-    탑: "left-[25%] top-[10%]",
-    정글: "left-[70%] top-[67%]",
-    미드: "left-[58%] top-[44%]",
-    원딜: "left-[90%] top-[76%]",
-    서폿: "left-[90%] top-[60%]",
-  },
-};
-
-const aramChampionPositions: Record<TeamKey, string[]> = {
-  team1: [
-    "left-[40%] top-[72%]",
-    "left-[28%] top-[64%]",
-    "left-[40%] top-[60%]",
-    "left-[40%] top-[48%]",
-    "left-[52%] top-[55%]",
-  ],
-  team2: [
-    "left-[68%] top-[25%]",
-    "left-[66%] top-[50%]",
-    "left-[53%] top-[40%]",
-    "left-[65%] top-[38%]",
-    "left-[78%] top-[34%]",
-  ],
-};
-
-const LOGIN_SESSION_COOKIE_NAME = "lolanj_login_session";
-const REMEMBER_LOGIN_STORAGE_KEY = "lolanj_remember_login";
-
-const setLoginSessionCookie = (id: string, role: string) => {
-  const value = encodeURIComponent(JSON.stringify({ id, role }));
-  document.cookie = `${LOGIN_SESSION_COOKIE_NAME}=${value}; path=/; SameSite=Lax`;
-};
-
-const getLoginSessionCookie = () => {
-  const cookie = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith(`${LOGIN_SESSION_COOKIE_NAME}=`));
-
-  if (!cookie) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(decodeURIComponent(cookie.split("=")[1])) as {
-      id: string;
-      role: string;
-    };
-  } catch {
-    return null;
-  }
-};
-
-const clearLoginSessionCookie = () => {
-  document.cookie = `${LOGIN_SESSION_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
-};
+import {
+  getChampionImageUrl,
+  getMemberGameTypes,
+  toggleMemberGameType,
+} from "../shared/helpers";
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -400,10 +210,7 @@ export default function Home() {
   const [expandedMemberName, setExpandedMemberName] = useState("");
 
   const fetchMembers = async () => {
-    const { data, error } = await supabase
-      .from("members")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchMembersApi();
 
     if (error) {
       console.error("members 조회 실패:", error);
@@ -455,7 +262,7 @@ export default function Home() {
 
     const fullNickname = `${nickname.trim()}#${tag.trim()}`;
 
-    const { error } = await supabase.from("members").insert({
+    const { error } = await addMemberApi({
       name: name.trim(),
       nickname: fullNickname,
       highest_tier: getTierText(highestTier, highestTierDivision),
@@ -463,8 +270,6 @@ export default function Home() {
       main_line: mainLine,
       sub_line: subLine,
       memo: memo.trim(),
-      is_active: true,
-      member_role: null,
     });
 
     if (error) {
@@ -496,10 +301,7 @@ export default function Home() {
       return;
     }
 
-    const { error } = await supabase
-      .from("members")
-      .delete()
-      .eq("id", memberId);
+    const { error } = await deleteMemberApi(memberId);
 
     if (error) {
       console.error("모임원 삭제 실패:", error);
@@ -557,18 +359,15 @@ export default function Home() {
       return;
     }
 
-    const { error } = await supabase
-      .from("members")
-      .update({
-        name: editName.trim(),
-        nickname: editNickname.trim(),
-        highest_tier: getTierText(editHighestTier, editHighestTierDivision),
-        current_tier: getTierText(editCurrentTier, editCurrentTierDivision),
-        main_line: editMainLine,
-        sub_line: editSubLine,
-        memo: editMemo.trim(),
-      })
-      .eq("id", memberId);
+    const { error } = await updateMemberApi(memberId, {
+      name: editName.trim(),
+      nickname: editNickname.trim(),
+      highest_tier: getTierText(editHighestTier, editHighestTierDivision),
+      current_tier: getTierText(editCurrentTier, editCurrentTierDivision),
+      main_line: editMainLine,
+      sub_line: editSubLine,
+      memo: editMemo.trim(),
+    });
 
     if (error) {
       console.error("모임원 수정 실패:", error);
@@ -604,12 +403,7 @@ export default function Home() {
         return;
       }
 
-      const { error: clearOwnerError } = await supabase
-        .from("members")
-        .update({
-          member_role: null,
-        })
-        .eq("member_role", "모임장");
+      const { error: clearOwnerError } = await clearOwnerRoleApi();
 
       if (clearOwnerError) {
         console.error("기존 모임장 해제 실패:", clearOwnerError);
@@ -617,12 +411,7 @@ export default function Home() {
         return;
       }
 
-      const { error: setOwnerError } = await supabase
-        .from("members")
-        .update({
-          member_role: "모임장",
-        })
-        .eq("id", memberId);
+      const { error: setOwnerError } = await updateMemberRoleApi(memberId, "모임장");
 
       if (setOwnerError) {
         console.error("모임장 양도 실패:", setOwnerError);
@@ -634,12 +423,7 @@ export default function Home() {
       return;
     }
 
-    const { error } = await supabase
-      .from("members")
-      .update({
-        member_role: memberRole || null,
-      })
-      .eq("id", memberId);
+    const { error } = await updateMemberRoleApi(memberId, memberRole || null);
 
     if (error) {
       console.error("모임원 태그 변경 실패:", error);
@@ -664,48 +448,6 @@ export default function Home() {
 
   const isUnknownMemberName = (value: string) => {
     return value.trim() !== "" && !findMemberByInput(value);
-  };
-
-  const calculateMemberScore = (member: Member | null, line: LineKey) => {
-    if (!member) {
-      return 0;
-    }
-
-    const currentTierScore = getCurrentTierScore(
-      member.current_tier,
-      member.highest_tier
-    );
-    const highestTierScore = getTierScore(member.highest_tier);
-
-    let lineBonus = -100;
-
-    if (member.main_line === "상관없음") {
-      lineBonus = 0;
-    } else if (member.main_line === line) {
-      lineBonus = 120;
-    } else if (member.sub_line === "상관없음") {
-      lineBonus = 0;
-    } else if (member.sub_line === line) {
-      lineBonus = 60;
-    }
-
-    return Math.round(
-      currentTierScore * 0.7 + highestTierScore * 0.2 + lineBonus
-    );
-  };
-
-  const calculateAramMemberScore = (member: Member | null) => {
-    if (!member) {
-      return 0;
-    }
-
-    const currentTierScore = getCurrentTierScore(
-      member.current_tier,
-      member.highest_tier
-    );
-    const highestTierScore = getTierScore(member.highest_tier);
-
-    return Math.round(currentTierScore * 0.75 + highestTierScore * 0.25);
   };
 
   const getAramSlotMember = (team: TeamKey, index: number) => {
@@ -879,128 +621,6 @@ export default function Home() {
 
   const canAutoBalanceTeams = getAutoBalanceMembers() !== null;
 
-  const getCombinations = <T,>(items: T[], count: number) => {
-    const result: T[][] = [];
-
-    const pick = (startIndex: number, selected: T[]) => {
-      if (selected.length === count) {
-        result.push(selected);
-        return;
-      }
-
-      for (let i = startIndex; i < items.length; i += 1) {
-        pick(i + 1, [...selected, items[i]]);
-      }
-    };
-
-    pick(0, []);
-
-    return result;
-  };
-
-  const getPermutations = <T,>(items: T[]) => {
-    const result: T[][] = [];
-
-    const pick = (rest: T[], selected: T[]) => {
-      if (rest.length === 0) {
-        result.push(selected);
-        return;
-      }
-
-      rest.forEach((item, index) => {
-        pick(
-          rest.filter((_, restIndex) => restIndex !== index),
-          [...selected, item]
-        );
-      });
-    };
-
-    pick(items, []);
-
-    return result;
-  };
-
-  const buildTeamSlotsFromMembers = (teamMembers: Member[]) => {
-    const slots = {} as Record<LineKey, string>;
-
-    LINES.forEach((line, index) => {
-      slots[line] = teamMembers[index].name;
-    });
-
-    return slots;
-  };
-
-  const getTeamScoreByMembers = (teamMembers: Member[]) => {
-    return LINES.reduce((total, line, index) => {
-      return total + calculateMemberScore(teamMembers[index], line);
-    }, 0);
-  };
-
-  const getLinePreferencePenalty = (member: Member, line: LineKey) => {
-    if (member.main_line === "상관없음") {
-      return 0;
-    }
-
-    if (member.main_line === line) {
-      return 0;
-    }
-
-    if (member.sub_line === "상관없음") {
-      return 30;
-    }
-
-    if (member.sub_line === line) {
-      return 10;
-    }
-
-    return 100;
-  };
-
-  const getTeamLinePreferencePenalty = (teamMembers: Member[]) => {
-    return LINES.reduce((total, line, index) => {
-      return total + getLinePreferencePenalty(teamMembers[index], line);
-    }, 0);
-  };
-
-  const getBestLineupForTeam = (teamMembers: Member[]) => {
-    let bestLineup: Member[] | null = null;
-    let bestScore = Number.MIN_SAFE_INTEGER;
-    let bestPenalty = Number.MAX_SAFE_INTEGER;
-
-    getPermutations(teamMembers).forEach((lineup) => {
-      const score = getTeamScoreByMembers(lineup);
-      const penalty = getTeamLinePreferencePenalty(lineup);
-
-      if (score > bestScore || (score === bestScore && penalty < bestPenalty)) {
-        bestScore = score;
-        bestPenalty = penalty;
-        bestLineup = lineup;
-      }
-    });
-
-    return bestLineup ?? teamMembers;
-  };
-
-  const getLineDiffTotalByMembers = (team1Members: Member[], team2Members: Member[]) => {
-    return LINES.reduce((total, line, index) => {
-      const team1Score = calculateMemberScore(team1Members[index], line);
-      const team2Score = calculateMemberScore(team2Members[index], line);
-
-      return total + Math.abs(team1Score - team2Score);
-    }, 0);
-  };
-
-  const getMaxLineDiffByMembers = (team1Members: Member[], team2Members: Member[]) => {
-    return Math.max(
-      ...LINES.map((line, index) => {
-        const team1Score = calculateMemberScore(team1Members[index], line);
-        const team2Score = calculateMemberScore(team2Members[index], line);
-
-        return Math.abs(team1Score - team2Score);
-      })
-    );
-  };
-
   const autoBalanceTeams = () => {
     const targetMembers = getAutoBalanceMembers();
 
@@ -1009,47 +629,14 @@ export default function Home() {
       return;
     }
 
-    let bestTeam1: Member[] | null = null;
-    let bestTeam2: Member[] | null = null;
-    let bestBalanceScore = Number.MAX_SAFE_INTEGER;
+    const balancedTeamSlots = calculateAutoBalancedTeamSlots(targetMembers);
 
-    const combinations = getCombinations(targetMembers, 5);
-
-    combinations.forEach((team1BaseMembers) => {
-      const team2BaseMembers = targetMembers.filter(
-        (member) => !team1BaseMembers.some((team1Member) => team1Member.id === member.id)
-      );
-
-      const team1Members = getBestLineupForTeam(team1BaseMembers);
-      const team2Members = getBestLineupForTeam(team2BaseMembers);
-
-      const team1Score = getTeamScoreByMembers(team1Members);
-      const team2Score = getTeamScoreByMembers(team2Members);
-      const teamDiff = Math.abs(team1Score - team2Score);
-      const totalLineDiff = getLineDiffTotalByMembers(team1Members, team2Members);
-      const maxLineDiff = getMaxLineDiffByMembers(team1Members, team2Members);
-      const preferencePenalty =
-        getTeamLinePreferencePenalty(team1Members) + getTeamLinePreferencePenalty(team2Members);
-
-      const balanceScore =
-        teamDiff * 10 + totalLineDiff + maxLineDiff * 2 + preferencePenalty;
-
-      if (balanceScore < bestBalanceScore) {
-        bestBalanceScore = balanceScore;
-        bestTeam1 = team1Members;
-        bestTeam2 = team2Members;
-      }
-    });
-
-    if (!bestTeam1 || !bestTeam2) {
+    if (!balancedTeamSlots) {
       alert("자동 팀짜기에 실패했습니다.");
       return;
     }
 
-    setTeamSlots({
-      team1: buildTeamSlotsFromMembers(bestTeam1),
-      team2: buildTeamSlotsFromMembers(bestTeam2),
-    });
+    setTeamSlots(balancedTeamSlots);
   };
 
   const importBalanceToRecord = () => {
@@ -1199,21 +786,12 @@ export default function Home() {
       setLoginUserRole(savedSession.role);
     }
 
-    const rememberedLogin = localStorage.getItem(REMEMBER_LOGIN_STORAGE_KEY);
+    const rememberedLogin = getRememberedLogin();
 
     if (rememberedLogin) {
-      try {
-        const parsedLogin = JSON.parse(rememberedLogin) as {
-          id: string;
-          password: string;
-        };
-
-        setLoginId(parsedLogin.id);
-        setLoginPassword(parsedLogin.password);
-        setIsRememberLogin(true);
-      } catch {
-        localStorage.removeItem(REMEMBER_LOGIN_STORAGE_KEY);
-      }
+      setLoginId(rememberedLogin.id);
+      setLoginPassword(rememberedLogin.password);
+      setIsRememberLogin(true);
     }
 
     fetchMembers();
@@ -1226,12 +804,7 @@ export default function Home() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("login_accounts")
-      .select("*")
-      .eq("id", loginId.trim())
-      .eq("password", loginPassword)
-      .single();
+    const { data, error } = await loginAccount(loginId.trim(), loginPassword);
 
     if (error || !data) {
       console.error("로그인 실패:", error);
@@ -1242,15 +815,9 @@ export default function Home() {
     setLoginSessionCookie(data.id, data.role);
 
     if (isRememberLogin) {
-      localStorage.setItem(
-        REMEMBER_LOGIN_STORAGE_KEY,
-        JSON.stringify({
-          id: loginId.trim(),
-          password: loginPassword,
-        })
-      );
+      saveRememberedLogin(loginId.trim(), loginPassword);
     } else {
-      localStorage.removeItem(REMEMBER_LOGIN_STORAGE_KEY);
+      clearRememberedLogin();
     }
 
     setIsLoggedIn(true);
@@ -1336,7 +903,7 @@ export default function Home() {
       return;
     }
 
-    const { error } = await supabase.from("match_records").insert({
+    const { error } = await saveMatchRecordApi({
       title: title.trim(),
       team1: recordSlots.team1,
       team2: recordSlots.team2,
@@ -1355,10 +922,7 @@ export default function Home() {
   };
 
   const fetchMatchRecords = async () => {
-    const { data, error } = await supabase
-      .from("match_records")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchMatchRecordsApi();
 
     if (error) {
       console.error("내전 기록 조회 실패:", error);
@@ -1397,7 +961,7 @@ export default function Home() {
       return;
     }
 
-    const { error } = await supabase.from("aram_match_records").insert({
+    const { error } = await saveAramMatchRecordApi({
       title: title.trim(),
       team1: aramRecordSlots.team1,
       team2: aramRecordSlots.team2,
@@ -1415,10 +979,7 @@ export default function Home() {
   };
 
   const fetchAramMatchRecords = async () => {
-    const { data, error } = await supabase
-      .from("aram_match_records")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchAramMatchRecordsApi();
 
     if (error) {
       console.error("증바 내전 기록 조회 실패:", error);
@@ -1436,10 +997,7 @@ export default function Home() {
       return;
     }
 
-    const { error } = await supabase
-      .from("aram_match_records")
-      .delete()
-      .eq("id", recordId);
+    const { error } = await deleteAramMatchRecordApi(recordId);
 
     if (error) {
       console.error("증바 내전 기록 삭제 실패:", error);
@@ -1457,10 +1015,7 @@ export default function Home() {
       return;
     }
 
-    const { error } = await supabase
-      .from("match_records")
-      .delete()
-      .eq("id", recordId);
+    const { error } = await deleteMatchRecordApi(recordId);
 
     if (error) {
       console.error("내전 기록 삭제 실패:", error);
@@ -1471,415 +1026,15 @@ export default function Home() {
     await fetchMatchRecords();
   };
 
-  const createEmptyStatCount = (): StatCount => ({
-    games: 0,
-    wins: 0,
-    losses: 0,
-  });
-
-  const addStatCount = (
-    target: Record<string, StatCount>,
-    key: string,
-    isWin: boolean
-  ) => {
-    if (!key.trim()) {
-      return;
-    }
-
-    if (!target[key]) {
-      target[key] = createEmptyStatCount();
-    }
-
-    target[key].games += 1;
-
-    if (isWin) {
-      target[key].wins += 1;
-    } else {
-      target[key].losses += 1;
-    }
-  };
-
-  const getWinRate = (wins: number, games: number) => {
-    if (games === 0) {
-      return "0.0";
-    }
-
-    return ((wins / games) * 100).toFixed(1);
-  };
-
-  const buildMemberStats = () => {
-    const statMap: Record<string, PlayerStat> = {};
-
-    const getOrCreatePlayerStat = (playerName: string) => {
-      if (!statMap[playerName]) {
-        statMap[playerName] = {
-          name: playerName,
-          games: 0,
-          wins: 0,
-          losses: 0,
-          championStats: {},
-          lineStats: {},
-          opponentStats: {},
-        };
-      }
-
-      return statMap[playerName];
-    };
-
-    matchRecords.forEach((record) => {
-      const team1Players = LINES.map((line) => ({
-        team: "team1" as TeamKey,
-        line,
-        player: record.team1[line].player,
-        champion: record.team1[line].champion,
-      })).filter((item) => item.player.trim());
-
-      const team2Players = LINES.map((line) => ({
-        team: "team2" as TeamKey,
-        line,
-        player: record.team2[line].player,
-        champion: record.team2[line].champion,
-      })).filter((item) => item.player.trim());
-
-      const allPlayers = [...team1Players, ...team2Players];
-
-      allPlayers.forEach((item) => {
-        const isWin = record.match_result === item.team;
-        const playerStat = getOrCreatePlayerStat(item.player);
-
-        playerStat.games += 1;
-
-        if (isWin) {
-          playerStat.wins += 1;
-        } else {
-          playerStat.losses += 1;
-        }
-
-        addStatCount(playerStat.championStats, item.champion, isWin);
-
-        const currentLineStat =
-          playerStat.lineStats[item.line] ?? createEmptyStatCount();
-
-        currentLineStat.games += 1;
-
-        if (isWin) {
-          currentLineStat.wins += 1;
-        } else {
-          currentLineStat.losses += 1;
-        }
-
-        playerStat.lineStats[item.line] = currentLineStat;
-
-        const opponentPlayers = item.team === "team1" ? team2Players : team1Players;
-
-        opponentPlayers.forEach((opponent) => {
-          addStatCount(playerStat.opponentStats, opponent.player, isWin);
-        });
-      });
-    });
-
-    return Object.values(statMap).sort((a, b) => {
-      const bRate = b.games === 0 ? 0 : b.wins / b.games;
-      const aRate = a.games === 0 ? 0 : a.wins / a.games;
-
-      if (b.games !== a.games) {
-        return b.games - a.games;
-      }
-
-      if (bRate !== aRate) {
-        return bRate - aRate;
-      }
-
-      return a.name.localeCompare(b.name, "ko-KR");
-    });
-  };
-
-  const getMostPickedChampionText = () => {
-    const championCounts: Record<string, number> = {};
-
-    matchRecords.forEach((record) => {
-      LINES.forEach((line) => {
-        const team1Champion = record.team1[line].champion;
-        const team2Champion = record.team2[line].champion;
-
-        if (team1Champion) {
-          championCounts[team1Champion] = (championCounts[team1Champion] ?? 0) + 1;
-        }
-
-        if (team2Champion) {
-          championCounts[team2Champion] = (championCounts[team2Champion] ?? 0) + 1;
-        }
-      });
-    });
-
-    const mostPickedChampion = Object.entries(championCounts).sort(
-      (a, b) => b[1] - a[1]
-    )[0];
-
-    if (!mostPickedChampion) {
-      return "없음";
-    }
-
-    return `${mostPickedChampion[0]} (${mostPickedChampion[1]}회)`;
-  };
-
-  const getBestWinRatePlayerText = (playerStats: PlayerStat[]) => {
-    const bestPlayer = [...playerStats]
-      .filter((stat) => stat.games > 0)
-      .sort((a, b) => {
-        const bRate = b.wins / b.games;
-        const aRate = a.wins / a.games;
-
-        if (bRate !== aRate) {
-          return bRate - aRate;
-        }
-
-        return b.games - a.games;
-      })[0];
-
-    if (!bestPlayer) {
-      return "없음";
-    }
-
-    return `${bestPlayer.name} · ${bestPlayer.games}전 ${bestPlayer.wins}승 ${bestPlayer.losses}패 · 승률 ${getWinRate(bestPlayer.wins, bestPlayer.games)}%`;
-  };
-
-  const getAramMostPickedChampionText = () => {
-    const championCounts: Record<string, number> = {};
-
-    aramMatchRecords.forEach((record) => {
-      record.team1.forEach((slot) => {
-        if (slot.champion) {
-          championCounts[slot.champion] = (championCounts[slot.champion] ?? 0) + 1;
-        }
-      });
-
-      record.team2.forEach((slot) => {
-        if (slot.champion) {
-          championCounts[slot.champion] = (championCounts[slot.champion] ?? 0) + 1;
-        }
-      });
-    });
-
-    const mostPickedChampion = Object.entries(championCounts).sort(
-      (a, b) => b[1] - a[1]
-    )[0];
-
-    if (!mostPickedChampion) {
-      return "없음";
-    }
-
-    return `${mostPickedChampion[0]} (${mostPickedChampion[1]}회)`;
-  };
-
-  const getAramBestWinRatePlayerText = (
-    aramStats: Record<string, AramPlayerStat>
-  ) => {
-    const bestPlayer = Object.entries(aramStats)
-      .filter(([, stat]) => stat.games > 0)
-      .sort((a, b) => {
-        const bRate = b[1].wins / b[1].games;
-        const aRate = a[1].wins / a[1].games;
-
-        if (bRate !== aRate) {
-          return bRate - aRate;
-        }
-
-        return b[1].games - a[1].games;
-      })[0];
-
-    if (!bestPlayer) {
-      return "없음";
-    }
-
-    return `${bestPlayer[0]} · ${bestPlayer[1].games}전 ${bestPlayer[1].wins}승 ${bestPlayer[1].losses}패 · 승률 ${getWinRate(bestPlayer[1].wins, bestPlayer[1].games)}%`;
-  };
-
-  const buildAramMemberStats = () => {
-    const statMap: Record<string, AramPlayerStat> = {};
-
-    const getOrCreateAramStat = (playerName: string) => {
-      if (!statMap[playerName]) {
-        statMap[playerName] = {
-          games: 0,
-          wins: 0,
-          losses: 0,
-          championStats: {},
-        };
-      }
-
-      return statMap[playerName];
-    };
-
-    const addAramPlayerResult = (
-      playerName: string,
-      champion: string,
-      isWin: boolean
-    ) => {
-      if (!playerName.trim()) {
-        return;
-      }
-
-      const stat = getOrCreateAramStat(playerName);
-
-      stat.games += 1;
-
-      if (isWin) {
-        stat.wins += 1;
-      } else {
-        stat.losses += 1;
-      }
-
-      addStatCount(stat.championStats, champion, isWin);
-    };
-
-    aramMatchRecords.forEach((record) => {
-      record.team1.forEach((slot) => {
-        addAramPlayerResult(
-          slot.player,
-          slot.champion,
-          record.match_result === "team1"
-        );
-      });
-
-      record.team2.forEach((slot) => {
-        addAramPlayerResult(
-          slot.player,
-          slot.champion,
-          record.match_result === "team2"
-        );
-      });
-    });
-
-    return statMap;
-  };
-
-  const buildTotalMemberStats = () => {
-    const totalStatMap: Record<string, PlayerStat> = {};
-
-    const getOrCreateTotalStat = (playerName: string) => {
-      if (!totalStatMap[playerName]) {
-        totalStatMap[playerName] = {
-          name: playerName,
-          games: 0,
-          wins: 0,
-          losses: 0,
-          championStats: {},
-          lineStats: {},
-          opponentStats: {},
-        };
-      }
-
-      return totalStatMap[playerName];
-    };
-
-    buildMemberStats().forEach((stat) => {
-      const totalStat = getOrCreateTotalStat(stat.name);
-
-      totalStat.games += stat.games;
-      totalStat.wins += stat.wins;
-      totalStat.losses += stat.losses;
-
-      Object.entries(stat.championStats).forEach(([champion, championStat]) => {
-        if (!totalStat.championStats[champion]) {
-          totalStat.championStats[champion] = createEmptyStatCount();
-        }
-
-        totalStat.championStats[champion].games += championStat.games;
-        totalStat.championStats[champion].wins += championStat.wins;
-        totalStat.championStats[champion].losses += championStat.losses;
-      });
-
-      Object.entries(stat.lineStats).forEach(([line, lineStat]) => {
-        if (!lineStat) {
-          return;
-        }
-
-        const lineKey = line as LineKey;
-
-        if (!totalStat.lineStats[lineKey]) {
-          totalStat.lineStats[lineKey] = createEmptyStatCount();
-        }
-
-        totalStat.lineStats[lineKey]!.games += lineStat.games;
-        totalStat.lineStats[lineKey]!.wins += lineStat.wins;
-        totalStat.lineStats[lineKey]!.losses += lineStat.losses;
-      });
-
-      Object.entries(stat.opponentStats).forEach(([opponent, opponentStat]) => {
-        if (!totalStat.opponentStats[opponent]) {
-          totalStat.opponentStats[opponent] = createEmptyStatCount();
-        }
-
-        totalStat.opponentStats[opponent].games += opponentStat.games;
-        totalStat.opponentStats[opponent].wins += opponentStat.wins;
-        totalStat.opponentStats[opponent].losses += opponentStat.losses;
-      });
-    });
-
-    Object.entries(buildAramMemberStats()).forEach(([playerName, aramStat]) => {
-      const totalStat = getOrCreateTotalStat(playerName);
-
-      totalStat.games += aramStat.games;
-      totalStat.wins += aramStat.wins;
-      totalStat.losses += aramStat.losses;
-
-      Object.entries(aramStat.championStats).forEach(([champion, championStat]) => {
-        if (!totalStat.championStats[champion]) {
-          totalStat.championStats[champion] = createEmptyStatCount();
-        }
-
-        totalStat.championStats[champion].games += championStat.games;
-        totalStat.championStats[champion].wins += championStat.wins;
-        totalStat.championStats[champion].losses += championStat.losses;
-      });
-    });
-
-    return Object.values(totalStatMap).sort((a, b) => {
-      const bRate = b.games === 0 ? 0 : b.wins / b.games;
-      const aRate = a.games === 0 ? 0 : a.wins / a.games;
-
-      if (b.games !== a.games) {
-        return b.games - a.games;
-      }
-
-      if (bRate !== aRate) {
-        return bRate - aRate;
-      }
-
-      return a.name.localeCompare(b.name, "ko-KR");
-    });
-  };
-
-  const getAramParticipantsCount = () => {
-    const playerSet = new Set<string>();
-
-    aramMatchRecords.forEach((record) => {
-      record.team1.forEach((slot) => {
-        if (slot.player.trim()) {
-          playerSet.add(slot.player);
-        }
-      });
-
-      record.team2.forEach((slot) => {
-        if (slot.player.trim()) {
-          playerSet.add(slot.player);
-        }
-      });
-    });
-
-    return playerSet.size;
-  };
-
-  const memberStats = buildMemberStats();
-  const aramMemberStats = buildAramMemberStats();
-  const totalMemberStats = buildTotalMemberStats();
-
-  const mostPickedChampionText = getMostPickedChampionText();
+  const memberStats = buildMemberStats(matchRecords);
+  const aramMemberStats = buildAramMemberStats(aramMatchRecords);
+  const totalMemberStats = buildTotalMemberStats(memberStats, aramMemberStats);
+
+  const mostPickedChampionText = getMostPickedChampionText(matchRecords);
   const bestWinRatePlayerText = getBestWinRatePlayerText(memberStats);
-  const aramMostPickedChampionText = getAramMostPickedChampionText();
+  const aramMostPickedChampionText = getAramMostPickedChampionText(aramMatchRecords);
   const aramBestWinRatePlayerText = getAramBestWinRatePlayerText(aramMemberStats);
-  const aramParticipantsCount = getAramParticipantsCount();
+  const aramParticipantsCount = getAramParticipantsCount(aramMatchRecords);
 
   const filteredMemberStats = totalMemberStats.filter((stat) => {
     const keyword = memberStatsSearchName.trim().toLowerCase();

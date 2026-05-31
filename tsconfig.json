@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "shared/tier.ts", "shared/types"  ],
   "exclude": ["node_modules"]
 }
