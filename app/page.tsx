@@ -1534,355 +1534,359 @@ export default function Home() {
                   />
                 </div>
 
-                <div className="grid min-h-[760px] grid-cols-2 content-start gap-4">
-                  {pagedMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="rounded-xl border border-slate-800 bg-[#111c2e] p-4"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold">{member.name}</p>
-                          <p className="text-sm text-slate-400">
-                            {member.nickname}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          {canSetMemberRole ? (
-                            <div className="flex items-center gap-1 rounded-full border border-slate-700 bg-[#07101f] p-1">
-                              <button
-                                onClick={() => updateMemberRole(member.id, "")}
-                                className={`rounded-full px-3 py-1 text-xs font-bold transition ${!member.member_role
-                                  ? "bg-slate-600 text-white shadow"
-                                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                                  }`}
-                              >
-                                없음
-                              </button>
+                <div className="min-h-[760px]">
+                  <div className="grid grid-cols-2 gap-4">
+                    {pagedMembers.map((member) => (
+                      <div
+                        key={member.id}
+                        className="rounded-xl border border-slate-800 bg-[#111c2e] p-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-semibold">{member.name}</p>
+                            <p className="text-sm text-slate-400">
+                              {member.nickname}
+                            </p>
+                          </div>
 
-                              <button
-                                onClick={() => updateMemberRole(member.id, "모임장")}
-                                className={`rounded-full px-3 py-1 text-xs font-bold transition ${member.member_role === "모임장"
-                                  ? "bg-yellow-400 text-black shadow"
-                                  : "text-yellow-300 hover:bg-yellow-900/40"
-                                  }`}
-                              >
-                                👑 모임장
-                              </button>
-
-                              <button
-                                onClick={() => updateMemberRole(member.id, "운영진")}
-                                className={`rounded-full px-3 py-1 text-xs font-bold transition ${member.member_role === "운영진"
-                                  ? "bg-blue-500 text-white shadow"
-                                  : "text-blue-300 hover:bg-blue-900/40"
-                                  }`}
-                              >
-                                🛡 운영진
-                              </button>
-                            </div>
-                          ) : (
-                            member.member_role && (
-                              <span
-                                className={`rounded-full border px-3 py-1 text-xs font-black shadow-sm ${member.member_role === "모임장"
-                                  ? "border-yellow-400 bg-yellow-400/15 text-yellow-300"
-                                  : "border-blue-400 bg-blue-500/15 text-blue-300"
-                                  }`}
-                              >
-                                {member.member_role === "모임장" ? "👑 모임장" : "🛡 운영진"}
-                              </span>
-                            )
-                          )}
-
-                          {canEditMember && canEditTargetMember(member) && (
-                            <button
-                              onClick={() => startEditMember(member)}
-                              className="rounded-full bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-600"
-                            >
-                              수정
-                            </button>
-                          )}
-
-                          {canDeleteMember && member.member_role !== "모임장" && (
-                            <button
-                              onClick={() => deleteMember(member.id)}
-                              className="rounded-full bg-red-900 px-3 py-1 text-xs font-semibold text-red-300 hover:bg-red-800"
-                            >
-                              삭제
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-slate-300">
-                        <p>현재 티어: {member.current_tier}</p>
-                        <p>최고 티어: {member.highest_tier}</p>
-                        <p>주 라인: {member.main_line}</p>
-                        <p>부 라인: {member.sub_line}</p>
-                      </div>
-
-                      {editingMemberId === member.id && (
-                        <div className="mt-4 rounded-xl border border-blue-900/60 bg-blue-950/20 p-4">
-                          <h4 className="mb-4 font-bold text-blue-300">모임원 정보 수정</h4>
-
-                          <div className="space-y-3">
-                            <input
-                              className="w-full rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
-                              placeholder="이름"
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                            />
-
-                            <input
-                              className="w-full rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
-                              placeholder="닉네임#태그"
-                              value={editNickname}
-                              onChange={(e) => setEditNickname(e.target.value)}
-                            />
-
-                            <div>
-                              <label className="mb-2 block text-xs font-medium text-slate-300">
-                                최고티어
-                              </label>
-
-                              <div className="grid grid-cols-[1fr_120px] gap-3">
-                                <select
-                                  className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
-                                  value={editHighestTier}
-                                  onChange={(e) => {
-                                    setEditHighestTier(e.target.value);
-
-                                    if (e.target.value === "언랭") {
-                                      setEditHighestTierDivision("4");
-                                    } else if (hasTierPoint(e.target.value)) {
-                                      setEditHighestTierDivision("0");
-                                    } else {
-                                      setEditHighestTierDivision("4");
-                                    }
-                                  }}
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            {canSetMemberRole ? (
+                              <div className="flex items-center gap-1 rounded-full border border-slate-700 bg-[#07101f] p-1">
+                                <button
+                                  onClick={() => updateMemberRole(member.id, "")}
+                                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${!member.member_role
+                                      ? "bg-slate-600 text-white shadow"
+                                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                                    }`}
                                 >
-                                  {TIER_NAMES.map((tier) => (
-                                    <option key={`edit-highest-${tier}`}>{tier}</option>
-                                  ))}
-                                </select>
+                                  없음
+                                </button>
 
-                                {editHighestTier === "언랭" ? (
-                                  <div className="flex items-center rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 text-slate-500">
-                                    --
-                                  </div>
-                                ) : hasTierPoint(editHighestTier) ? (
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
-                                    placeholder="점수"
-                                    value={editHighestTierDivision}
-                                    onChange={(e) => setEditHighestTierDivision(e.target.value)}
-                                  />
-                                ) : (
-                                  <select
-                                    className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
-                                    value={editHighestTierDivision}
-                                    onChange={(e) => setEditHighestTierDivision(e.target.value)}
-                                  >
-                                    {TIER_DIVISIONS.map((division) => (
-                                      <option key={`edit-highest-division-${division}`} value={division}>
-                                        {division}
-                                      </option>
-                                    ))}
-                                  </select>
-                                )}
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="mb-2 block text-xs font-medium text-slate-300">
-                                현재티어
-                              </label>
-
-                              <div className="grid grid-cols-[1fr_120px] gap-3">
-                                <select
-                                  className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
-                                  value={editCurrentTier}
-                                  onChange={(e) => {
-                                    setEditCurrentTier(e.target.value);
-
-                                    if (e.target.value === "언랭") {
-                                      setEditCurrentTierDivision("4");
-                                    } else if (hasTierPoint(e.target.value)) {
-                                      setEditCurrentTierDivision("0");
-                                    } else {
-                                      setEditCurrentTierDivision("4");
-                                    }
-                                  }}
+                                <button
+                                  onClick={() => updateMemberRole(member.id, "모임장")}
+                                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${member.member_role === "모임장"
+                                      ? "bg-yellow-400 text-black shadow"
+                                      : "text-yellow-300 hover:bg-yellow-900/40"
+                                    }`}
                                 >
-                                  {TIER_NAMES.map((tier) => (
-                                    <option key={`edit-current-${tier}`}>{tier}</option>
-                                  ))}
-                                </select>
+                                  👑 모임장
+                                </button>
 
-                                {editCurrentTier === "언랭" ? (
-                                  <div className="flex items-center rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 text-slate-500">
-                                    --
-                                  </div>
-                                ) : hasTierPoint(editCurrentTier) ? (
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
-                                    placeholder="점수"
-                                    value={editCurrentTierDivision}
-                                    onChange={(e) => setEditCurrentTierDivision(e.target.value)}
-                                  />
-                                ) : (
-                                  <select
-                                    className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
-                                    value={editCurrentTierDivision}
-                                    onChange={(e) => setEditCurrentTierDivision(e.target.value)}
-                                  >
-                                    {TIER_DIVISIONS.map((division) => (
-                                      <option key={`edit-current-division-${division}`} value={division}>
-                                        {division}
-                                      </option>
-                                    ))}
-                                  </select>
-                                )}
+                                <button
+                                  onClick={() => updateMemberRole(member.id, "운영진")}
+                                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${member.member_role === "운영진"
+                                      ? "bg-blue-500 text-white shadow"
+                                      : "text-blue-300 hover:bg-blue-900/40"
+                                    }`}
+                                >
+                                  🛡 운영진
+                                </button>
                               </div>
-                            </div>
+                            ) : (
+                              member.member_role && (
+                                <span
+                                  className={`rounded-full border px-3 py-1 text-xs font-black shadow-sm ${member.member_role === "모임장"
+                                      ? "border-yellow-400 bg-yellow-400/15 text-yellow-300"
+                                      : "border-blue-400 bg-blue-500/15 text-blue-300"
+                                    }`}
+                                >
+                                  {member.member_role === "모임장" ? "👑 모임장" : "🛡 운영진"}
+                                </span>
+                              )
+                            )}
 
-                            <div className="grid grid-cols-2 gap-3">
-                              <select
-                                className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
-                                value={editMainLine}
-                                onChange={(e) => {
-                                  setEditMainLine(e.target.value);
-
-                                  if (e.target.value === "상관없음") {
-                                    setEditSubLine("상관없음");
-                                  }
-                                }}
-                              >
-                                {MEMBER_LINE_OPTIONS.map((line) => (
-                                  <option key={`edit-main-line-${line}`}>{line}</option>
-                                ))}
-                              </select>
-
-                              <select
-                                className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
-                                value={editSubLine}
-                                onChange={(e) => setEditSubLine(e.target.value)}
-                                disabled={editMainLine === "상관없음"}
-                              >
-                                {MEMBER_LINE_OPTIONS.map((line) => (
-                                  <option key={`edit-sub-line-${line}`}>{line}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label className="mb-2 block text-xs font-medium text-slate-300">
-                                게임 유형
-                              </label>
-
-                              <div className="flex flex-wrap gap-2">
-                                {MEMBER_GAME_TYPES.map((gameType) => {
-                                  const isChecked = getMemberGameTypes(editMemo).includes(gameType);
-
-                                  return (
-                                    <button
-                                      key={`edit-game-type-${gameType}`}
-                                      type="button"
-                                      onClick={() => setEditMemo(toggleMemberGameType(editMemo, gameType))}
-                                      className={`rounded-full border px-3 py-1 text-xs font-bold transition ${isChecked
-                                        ? "border-blue-500 bg-blue-600 text-white"
-                                        : "border-slate-700 bg-[#07101f] text-slate-300 hover:bg-slate-800"
-                                        }`}
-                                    >
-                                      {gameType}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-
-                            <div className="flex gap-2">
+                            {canEditMember && canEditTargetMember(member) && (
                               <button
-                                onClick={() => updateMember(member.id)}
-                                className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold hover:bg-blue-500"
+                                onClick={() => startEditMember(member)}
+                                className="rounded-full bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-600"
                               >
-                                저장
+                                수정
                               </button>
+                            )}
 
+                            {canDeleteMember && member.member_role !== "모임장" && (
                               <button
-                                onClick={cancelEditMember}
-                                className="flex-1 rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold hover:bg-slate-600"
+                                onClick={() => deleteMember(member.id)}
+                                className="rounded-full bg-red-900 px-3 py-1 text-xs font-semibold text-red-300 hover:bg-red-800"
                               >
-                                취소
+                                삭제
                               </button>
-                            </div>
+                            )}
                           </div>
                         </div>
-                      )}
-                    </div>
-                  ))}
 
-                  {filteredMembers.length === 0 && memberListSearchName.trim() && (
-                    <p className="text-slate-400">
-                      검색된 모임원이 없습니다.
-                    </p>
-                  )}
+                        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-slate-300">
+                          <p>현재 티어: {member.current_tier}</p>
+                          <p>최고 티어: {member.highest_tier}</p>
+                          <p>주 라인: {member.main_line}</p>
+                          <p>부 라인: {member.sub_line}</p>
+                        </div>
 
-                  {members.length === 0 && !memberListSearchName.trim() && (
-                    <p className="text-slate-400">
-                      등록된 모임원이 없습니다.
-                    </p>
-                  )}
-                  {filteredMembers.length > 0 && (
-                    <div className="col-span-2 mt-6 flex items-center justify-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => setMemberListPage((page) => Math.max(1, page - 1))}
-                          disabled={memberListPage === 1}
-                          className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === 1
+                        {editingMemberId === member.id && (
+                          <div className="mt-4 rounded-xl border border-blue-900/60 bg-blue-950/20 p-4">
+                            <h4 className="mb-4 font-bold text-blue-300">모임원 정보 수정</h4>
+
+                            <div className="space-y-3">
+                              <input
+                                className="w-full rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                placeholder="이름"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                              />
+
+                              <input
+                                className="w-full rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                placeholder="닉네임#태그"
+                                value={editNickname}
+                                onChange={(e) => setEditNickname(e.target.value)}
+                              />
+
+                              <div>
+                                <label className="mb-2 block text-xs font-medium text-slate-300">
+                                  최고티어
+                                </label>
+
+                                <div className="grid grid-cols-[1fr_120px] gap-3">
+                                  <select
+                                    className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                    value={editHighestTier}
+                                    onChange={(e) => {
+                                      setEditHighestTier(e.target.value);
+
+                                      if (e.target.value === "언랭") {
+                                        setEditHighestTierDivision("4");
+                                      } else if (hasTierPoint(e.target.value)) {
+                                        setEditHighestTierDivision("0");
+                                      } else {
+                                        setEditHighestTierDivision("4");
+                                      }
+                                    }}
+                                  >
+                                    {TIER_NAMES.map((tier) => (
+                                      <option key={`edit-highest-${tier}`}>{tier}</option>
+                                    ))}
+                                  </select>
+
+                                  {editHighestTier === "언랭" ? (
+                                    <div className="flex items-center rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 text-slate-500">
+                                      --
+                                    </div>
+                                  ) : hasTierPoint(editHighestTier) ? (
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                      placeholder="점수"
+                                      value={editHighestTierDivision}
+                                      onChange={(e) => setEditHighestTierDivision(e.target.value)}
+                                    />
+                                  ) : (
+                                    <select
+                                      className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                      value={editHighestTierDivision}
+                                      onChange={(e) => setEditHighestTierDivision(e.target.value)}
+                                    >
+                                      {TIER_DIVISIONS.map((division) => (
+                                        <option key={`edit-highest-division-${division}`} value={division}>
+                                          {division}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="mb-2 block text-xs font-medium text-slate-300">
+                                  현재티어
+                                </label>
+
+                                <div className="grid grid-cols-[1fr_120px] gap-3">
+                                  <select
+                                    className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                    value={editCurrentTier}
+                                    onChange={(e) => {
+                                      setEditCurrentTier(e.target.value);
+
+                                      if (e.target.value === "언랭") {
+                                        setEditCurrentTierDivision("4");
+                                      } else if (hasTierPoint(e.target.value)) {
+                                        setEditCurrentTierDivision("0");
+                                      } else {
+                                        setEditCurrentTierDivision("4");
+                                      }
+                                    }}
+                                  >
+                                    {TIER_NAMES.map((tier) => (
+                                      <option key={`edit-current-${tier}`}>{tier}</option>
+                                    ))}
+                                  </select>
+
+                                  {editCurrentTier === "언랭" ? (
+                                    <div className="flex items-center rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 text-slate-500">
+                                      --
+                                    </div>
+                                  ) : hasTierPoint(editCurrentTier) ? (
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                      placeholder="점수"
+                                      value={editCurrentTierDivision}
+                                      onChange={(e) => setEditCurrentTierDivision(e.target.value)}
+                                    />
+                                  ) : (
+                                    <select
+                                      className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                      value={editCurrentTierDivision}
+                                      onChange={(e) => setEditCurrentTierDivision(e.target.value)}
+                                    >
+                                      {TIER_DIVISIONS.map((division) => (
+                                        <option key={`edit-current-division-${division}`} value={division}>
+                                          {division}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <select
+                                  className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                  value={editMainLine}
+                                  onChange={(e) => {
+                                    setEditMainLine(e.target.value);
+
+                                    if (e.target.value === "상관없음") {
+                                      setEditSubLine("상관없음");
+                                    }
+                                  }}
+                                >
+                                  {MEMBER_LINE_OPTIONS.map((line) => (
+                                    <option key={`edit-main-line-${line}`}>{line}</option>
+                                  ))}
+                                </select>
+
+                                <select
+                                  className="rounded-lg border border-slate-700 bg-[#07101f] px-3 py-2 outline-none"
+                                  value={editSubLine}
+                                  onChange={(e) => setEditSubLine(e.target.value)}
+                                  disabled={editMainLine === "상관없음"}
+                                >
+                                  {MEMBER_LINE_OPTIONS.map((line) => (
+                                    <option key={`edit-sub-line-${line}`}>{line}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="mb-2 block text-xs font-medium text-slate-300">
+                                  게임 유형
+                                </label>
+
+                                <div className="flex flex-wrap gap-2">
+                                  {MEMBER_GAME_TYPES.map((gameType) => {
+                                    const isChecked = getMemberGameTypes(editMemo).includes(gameType);
+
+                                    return (
+                                      <button
+                                        key={`edit-game-type-${gameType}`}
+                                        type="button"
+                                        onClick={() => setEditMemo(toggleMemberGameType(editMemo, gameType))}
+                                        className={`rounded-full border px-3 py-1 text-xs font-bold transition ${isChecked
+                                            ? "border-blue-500 bg-blue-600 text-white"
+                                            : "border-slate-700 bg-[#07101f] text-slate-300 hover:bg-slate-800"
+                                          }`}
+                                      >
+                                        {gameType}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => updateMember(member.id)}
+                                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold hover:bg-blue-500"
+                                >
+                                  저장
+                                </button>
+
+                                <button
+                                  onClick={cancelEditMember}
+                                  className="flex-1 rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold hover:bg-slate-600"
+                                >
+                                  취소
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {filteredMembers.length === 0 && memberListSearchName.trim() && (
+                      <p className="text-slate-400">
+                        검색된 모임원이 없습니다.
+                      </p>
+                    )}
+
+                    {members.length === 0 && !memberListSearchName.trim() && (
+                      <p className="text-slate-400">
+                        등록된 모임원이 없습니다.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {filteredMembers.length > 0 && (
+                  <div className="mt-6 flex items-center justify-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => setMemberListPage((page) => Math.max(1, page - 1))}
+                        disabled={memberListPage === 1}
+                        className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === 1
                             ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
                             : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
-                            }`}
-                        >
-                          ◀
-                        </button>
+                          }`}
+                      >
+                        ◀
+                      </button>
 
-                        {Array.from({ length: memberListTotalPages }).map((_, index) => {
-                          const page = index + 1;
+                      {Array.from({ length: memberListTotalPages }).map((_, index) => {
+                        const page = index + 1;
 
-                          return (
-                            <button
-                              key={`member-list-page-${page}`}
-                              onClick={() => setMemberListPage(page)}
-                              className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === page
+                        return (
+                          <button
+                            key={`member-list-page-${page}`}
+                            onClick={() => setMemberListPage(page)}
+                            className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === page
                                 ? "border-blue-500 bg-blue-600 text-white"
                                 : "border-slate-700 bg-[#111c2e] text-slate-300 hover:bg-slate-800"
-                                }`}
-                            >
-                              {page}
-                            </button>
-                          );
-                        })}
+                              }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      })}
 
-                        <button
-                          onClick={() =>
-                            setMemberListPage((page) => Math.min(memberListTotalPages, page + 1))
-                          }
-                          disabled={memberListPage === memberListTotalPages}
-                          className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === memberListTotalPages
+                      <button
+                        onClick={() =>
+                          setMemberListPage((page) => Math.min(memberListTotalPages, page + 1))
+                        }
+                        disabled={memberListPage === memberListTotalPages}
+                        className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === memberListTotalPages
                             ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
                             : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
-                            }`}
-                        >
-                          ▶
-                        </button>
-                      </div>
+                          }`}
+                      >
+                        ▶
+                      </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </>
           )}
