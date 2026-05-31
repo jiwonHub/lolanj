@@ -1503,9 +1503,13 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="mt-8 rounded-2xl border border-slate-800 bg-[#0b1424] p-6">
                 <div className="mb-5 flex items-center justify-between gap-4">
-                  <h3 className="text-xl font-semibold">모임원 리스트</h3>
+                  <div>
+                    <h3 className="text-xl font-semibold">모임원 리스트</h3>
+                    <p className="mt-1 text-sm text-slate-400">
+                      총 {members.length}명
+                    </p>
+                  </div>
 
                   <input
                     className="w-80 rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
