@@ -1837,47 +1837,49 @@ export default function Home() {
                     </p>
                   )}
                   {filteredMembers.length > 0 && (
-                    <div className="mt-6 flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => setMemberListPage((page) => Math.max(1, page - 1))}
-                        disabled={memberListPage === 1}
-                        className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === 1
-                            ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
-                            : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
-                          }`}
-                      >
-                        ◀
-                      </button>
+                    <div className="col-span-2 flex min-h-[520px] items-end justify-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => setMemberListPage((page) => Math.max(1, page - 1))}
+                          disabled={memberListPage === 1}
+                          className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === 1
+                              ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
+                              : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
+                            }`}
+                        >
+                          ◀
+                        </button>
 
-                      {Array.from({ length: memberListTotalPages }).map((_, index) => {
-                        const page = index + 1;
+                        {Array.from({ length: memberListTotalPages }).map((_, index) => {
+                          const page = index + 1;
 
-                        return (
-                          <button
-                            key={`member-list-page-${page}`}
-                            onClick={() => setMemberListPage(page)}
-                            className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === page
-                                ? "border-blue-500 bg-blue-600 text-white"
-                                : "border-slate-700 bg-[#111c2e] text-slate-300 hover:bg-slate-800"
-                              }`}
-                          >
-                            {page}
-                          </button>
-                        );
-                      })}
+                          return (
+                            <button
+                              key={`member-list-page-${page}`}
+                              onClick={() => setMemberListPage(page)}
+                              className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === page
+                                  ? "border-blue-500 bg-blue-600 text-white"
+                                  : "border-slate-700 bg-[#111c2e] text-slate-300 hover:bg-slate-800"
+                                }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        })}
 
-                      <button
-                        onClick={() =>
-                          setMemberListPage((page) => Math.min(memberListTotalPages, page + 1))
-                        }
-                        disabled={memberListPage === memberListTotalPages}
-                        className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === memberListTotalPages
-                            ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
-                            : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
-                          }`}
-                      >
-                        ▶
-                      </button>
+                        <button
+                          onClick={() =>
+                            setMemberListPage((page) => Math.min(memberListTotalPages, page + 1))
+                          }
+                          disabled={memberListPage === memberListTotalPages}
+                          className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === memberListTotalPages
+                              ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
+                              : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
+                            }`}
+                        >
+                          ▶
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
