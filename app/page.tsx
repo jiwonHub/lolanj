@@ -698,7 +698,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error("AI 자동 팀짜기 실패:", error);
-    
+
       if (error instanceof Error) {
         alert(error.message);
       } else {
@@ -1972,11 +1972,11 @@ export default function Home() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div>
+                  <div className="relative w-[180px]">
                     <button
                       onClick={autoBalanceTeams}
                       disabled={!canAutoBalanceTeams || isAutoBalancing}
-                      className={`rounded-lg px-5 py-3 font-semibold ${canAutoBalanceTeams && !isAutoBalancing
+                      className={`h-[48px] w-full rounded-lg px-5 py-3 font-semibold ${canAutoBalanceTeams && !isAutoBalancing
                         ? "bg-emerald-600 text-white hover:bg-emerald-500"
                         : "cursor-not-allowed bg-slate-700 text-slate-400"
                         }`}
@@ -1985,7 +1985,7 @@ export default function Home() {
                     </button>
 
                     {autoBalanceErrorMessage && (
-                      <p className="mt-2 text-xs font-semibold text-red-400">
+                      <p className="absolute left-0 top-[54px] w-[260px] text-xs font-semibold text-red-400">
                         {autoBalanceErrorMessage}
                       </p>
                     )}
@@ -2257,7 +2257,7 @@ export default function Home() {
                   </div>
 
                   <div className="mt-4 grid grid-cols-5 gap-3">
-                  {(autoBalanceAnalysis.lineAnalysis ?? []).map((line) => (
+                    {(autoBalanceAnalysis.lineAnalysis ?? []).map((line) => (
                       <div
                         key={`ai-line-analysis-${line.line}`}
                         className="rounded-xl border border-slate-800 bg-[#07101f] p-4"
