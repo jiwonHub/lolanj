@@ -64,9 +64,13 @@ import {
 
 import {
   calculateAramMemberScore,
-  calculateAutoBalancedTeamSlots,
   calculateMemberScore,
 } from "../features/balance/balanceCalculator";
+
+import {
+  analyzeAutoBalanceTeamsApi,
+  type AnalyzeAutoBalanceTeamsResponse,
+} from "../features/ai/aiService";
 
 import {
   buildAramMemberStats,
@@ -113,6 +117,9 @@ export default function Home() {
   const [memberStatsSearchName, setMemberStatsSearchName] = useState("");
   const [memberListSearchName, setMemberListSearchName] = useState("");
   const [memberListPage, setMemberListPage] = useState(1);
+  const [isAutoBalancing, setIsAutoBalancing] = useState(false);
+  const [autoBalanceAnalysis, setAutoBalanceAnalysis] =
+    useState<AnalyzeAutoBalanceTeamsResponse["analysis"] | null>(null);
 
   const [editingMemberId, setEditingMemberId] = useState("");
   const [editName, setEditName] = useState("");
@@ -443,7 +450,17 @@ export default function Home() {
     }
 
     return (
-      members.find((member) => member.name.toLowerCase() === keyword) ?? null
+      members.find((member) => {
+        const name = member.name.trim().toLowerCase();
+        const nickname = member.nickname.trim().toLowerCase();
+        const nicknameOnly = member.nickname.split("#")[0]?.trim().toLowerCase();
+
+        return (
+          name === keyword ||
+          nickname === keyword ||
+          nicknameOnly === keyword
+        );
+      }) ?? null
     );
   };
 
@@ -620,9 +637,35 @@ export default function Home() {
     return foundMembers as Member[];
   };
 
-  const canAutoBalanceTeams = getAutoBalanceMembers() !== null;
+  const getAutoBalanceErrorMessage = () => {
+    const names = getBalanceSlotNames();
 
-  const autoBalanceTeams = () => {
+    if (names.some((name) => !name)) {
+      return "10명의 모임원 이름을 모두 입력해야 합니다.";
+    }
+
+    const foundMembers = names.map((name) => findMemberByInput(name));
+
+    if (foundMembers.some((member) => member === null)) {
+      return "모임원 리스트에 없는 이름이 있습니다.";
+    }
+
+    const duplicatedNames = names.filter((name, index, array) => {
+      return array.findIndex((item) => item.toLowerCase() === name.toLowerCase()) !== index;
+    });
+
+    if (duplicatedNames.length > 0) {
+      return `중복된 이름이 있습니다: ${[...new Set(duplicatedNames)].join(", ")}`;
+    }
+
+    return "";
+  };
+
+  const autoBalanceErrorMessage = getAutoBalanceErrorMessage();
+
+  const canAutoBalanceTeams = !autoBalanceErrorMessage;
+
+  const autoBalanceTeams = async () => {
     const targetMembers = getAutoBalanceMembers();
 
     if (!targetMembers) {
@@ -630,14 +673,40 @@ export default function Home() {
       return;
     }
 
-    const balancedTeamSlots = calculateAutoBalancedTeamSlots(targetMembers);
+    try {
+      setIsAutoBalancing(true);
+      setAutoBalanceAnalysis(null);
 
-    if (!balancedTeamSlots) {
-      alert("자동 팀짜기에 실패했습니다.");
-      return;
+      const result = await analyzeAutoBalanceTeamsApi(
+        targetMembers.map((member) => ({
+          ...member,
+          line_scores: {
+            탑: calculateMemberScore(member, "탑"),
+            정글: calculateMemberScore(member, "정글"),
+            미드: calculateMemberScore(member, "미드"),
+            원딜: calculateMemberScore(member, "원딜"),
+            서폿: calculateMemberScore(member, "서폿"),
+          },
+        }))
+      );
+
+      setTeamSlots(result.teamSlots);
+      setAutoBalanceAnalysis(result.analysis);
+
+      if (result.warnings.length > 0) {
+        alert(result.warnings[0]);
+      }
+    } catch (error) {
+      console.error("AI 자동 팀짜기 실패:", error);
+    
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert("AI 자동 팀짜기 실패");
+      }
+    } finally {
+      setIsAutoBalancing(false);
     }
-
-    setTeamSlots(balancedTeamSlots);
   };
 
   const importBalanceToRecord = () => {
@@ -1555,8 +1624,8 @@ export default function Home() {
                                 <button
                                   onClick={() => updateMemberRole(member.id, "")}
                                   className={`rounded-full px-3 py-1 text-xs font-bold transition ${!member.member_role
-                                      ? "bg-slate-600 text-white shadow"
-                                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                                    ? "bg-slate-600 text-white shadow"
+                                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                                     }`}
                                 >
                                   없음
@@ -1565,8 +1634,8 @@ export default function Home() {
                                 <button
                                   onClick={() => updateMemberRole(member.id, "모임장")}
                                   className={`rounded-full px-3 py-1 text-xs font-bold transition ${member.member_role === "모임장"
-                                      ? "bg-yellow-400 text-black shadow"
-                                      : "text-yellow-300 hover:bg-yellow-900/40"
+                                    ? "bg-yellow-400 text-black shadow"
+                                    : "text-yellow-300 hover:bg-yellow-900/40"
                                     }`}
                                 >
                                   👑 모임장
@@ -1575,8 +1644,8 @@ export default function Home() {
                                 <button
                                   onClick={() => updateMemberRole(member.id, "운영진")}
                                   className={`rounded-full px-3 py-1 text-xs font-bold transition ${member.member_role === "운영진"
-                                      ? "bg-blue-500 text-white shadow"
-                                      : "text-blue-300 hover:bg-blue-900/40"
+                                    ? "bg-blue-500 text-white shadow"
+                                    : "text-blue-300 hover:bg-blue-900/40"
                                     }`}
                                 >
                                   🛡 운영진
@@ -1586,8 +1655,8 @@ export default function Home() {
                               member.member_role && (
                                 <span
                                   className={`rounded-full border px-3 py-1 text-xs font-black shadow-sm ${member.member_role === "모임장"
-                                      ? "border-yellow-400 bg-yellow-400/15 text-yellow-300"
-                                      : "border-blue-400 bg-blue-500/15 text-blue-300"
+                                    ? "border-yellow-400 bg-yellow-400/15 text-yellow-300"
+                                    : "border-blue-400 bg-blue-500/15 text-blue-300"
                                     }`}
                                 >
                                   {member.member_role === "모임장" ? "👑 모임장" : "🛡 운영진"}
@@ -1795,8 +1864,8 @@ export default function Home() {
                                         type="button"
                                         onClick={() => setEditMemo(toggleMemberGameType(editMemo, gameType))}
                                         className={`rounded-full border px-3 py-1 text-xs font-bold transition ${isChecked
-                                            ? "border-blue-500 bg-blue-600 text-white"
-                                            : "border-slate-700 bg-[#07101f] text-slate-300 hover:bg-slate-800"
+                                          ? "border-blue-500 bg-blue-600 text-white"
+                                          : "border-slate-700 bg-[#07101f] text-slate-300 hover:bg-slate-800"
                                           }`}
                                       >
                                         {gameType}
@@ -1848,8 +1917,8 @@ export default function Home() {
                         onClick={() => setMemberListPage((page) => Math.max(1, page - 1))}
                         disabled={memberListPage === 1}
                         className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === 1
-                            ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
-                            : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
+                          ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
+                          : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
                           }`}
                       >
                         ◀
@@ -1863,8 +1932,8 @@ export default function Home() {
                             key={`member-list-page-${page}`}
                             onClick={() => setMemberListPage(page)}
                             className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === page
-                                ? "border-blue-500 bg-blue-600 text-white"
-                                : "border-slate-700 bg-[#111c2e] text-slate-300 hover:bg-slate-800"
+                              ? "border-blue-500 bg-blue-600 text-white"
+                              : "border-slate-700 bg-[#111c2e] text-slate-300 hover:bg-slate-800"
                               }`}
                           >
                             {page}
@@ -1878,8 +1947,8 @@ export default function Home() {
                         }
                         disabled={memberListPage === memberListTotalPages}
                         className={`rounded-lg border px-3 py-2 text-sm font-bold ${memberListPage === memberListTotalPages
-                            ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
-                            : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
+                          ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-600"
+                          : "border-slate-700 bg-[#111c2e] text-slate-200 hover:bg-slate-800"
                           }`}
                       >
                         ▶
@@ -1903,16 +1972,24 @@ export default function Home() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={autoBalanceTeams}
-                    disabled={!canAutoBalanceTeams}
-                    className={`rounded-lg px-5 py-3 font-semibold ${canAutoBalanceTeams
-                      ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                      : "cursor-not-allowed bg-slate-700 text-slate-400"
-                      }`}
-                  >
-                    자동 팀짜기
-                  </button>
+                  <div>
+                    <button
+                      onClick={autoBalanceTeams}
+                      disabled={!canAutoBalanceTeams || isAutoBalancing}
+                      className={`rounded-lg px-5 py-3 font-semibold ${canAutoBalanceTeams && !isAutoBalancing
+                        ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                        : "cursor-not-allowed bg-slate-700 text-slate-400"
+                        }`}
+                    >
+                      {isAutoBalancing ? "AI 팀짜는 중..." : "AI 자동 팀짜기"}
+                    </button>
+
+                    {autoBalanceErrorMessage && (
+                      <p className="mt-2 text-xs font-semibold text-red-400">
+                        {autoBalanceErrorMessage}
+                      </p>
+                    )}
+                  </div>
 
                   <div className="rounded-xl border border-slate-700 bg-[#111c2e] px-5 py-3 text-right">
                     <p className="text-xs text-slate-400">밸런스 결과</p>
@@ -2130,6 +2207,98 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+              {autoBalanceAnalysis && (
+                <div className="mt-6 rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-emerald-400">
+                        AI 밸런스 리포트
+                      </p>
+                      <h3 className="mt-1 text-2xl font-black text-white">
+                        {autoBalanceAnalysis.title}
+                      </h3>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-700 bg-[#07101f] px-4 py-3 text-right">
+                      <p className="text-xs text-slate-400">현재 점수 차이</p>
+                      <p className="mt-1 text-lg font-black text-emerald-300">
+                        {Math.abs(getTeamTotalScore("team1") - getTeamTotalScore("team2"))}점
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-xl border border-slate-800 bg-[#07101f] p-4">
+                    <p className="text-sm leading-7 text-slate-200">
+                      {autoBalanceAnalysis.summary}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-4">
+                    <div className="rounded-xl border border-emerald-900/50 bg-emerald-950/20 p-4">
+                      <p className="text-sm font-bold text-emerald-300">점수 밸런스</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                        {autoBalanceAnalysis.scorePoint}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-blue-900/50 bg-blue-950/20 p-4">
+                      <p className="text-sm font-bold text-blue-300">1팀 포인트</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                        {autoBalanceAnalysis.team1Point}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
+                      <p className="text-sm font-bold text-red-300">2팀 포인트</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                        {autoBalanceAnalysis.team2Point}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-5 gap-3">
+                  {(autoBalanceAnalysis.lineAnalysis ?? []).map((line) => (
+                      <div
+                        key={`ai-line-analysis-${line.line}`}
+                        className="rounded-xl border border-slate-800 bg-[#07101f] p-4"
+                      >
+                        <p className="text-sm font-black text-slate-100">
+                          {line.line}
+                        </p>
+                        <p className="mt-2 text-sm font-bold text-emerald-300">
+                          {line.title}
+                        </p>
+                        <p className="mt-2 text-xs leading-5 text-slate-400">
+                          {line.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-yellow-900/50 bg-yellow-950/20 p-4">
+                    <p className="text-sm font-bold text-yellow-300">핵심 변수</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      {autoBalanceAnalysis.keyPoint}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-blue-900/50 bg-blue-950/20 p-4">
+                      <p className="text-sm font-bold text-blue-300">1팀 승리 플랜</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                        {autoBalanceAnalysis.winCondition.team1}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
+                      <p className="text-sm font-bold text-red-300">2팀 승리 플랜</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                        {autoBalanceAnalysis.winCondition.team2}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {activeMenu === "record" && (
