@@ -394,43 +394,6 @@ const buildMemberSummary = (
   });
 };
 
-const buildFallbackAnalysis = (
-    members: RequestMember[],
-    teamSlots: TeamSlots
-  ): BalanceAnalysis => {
-    const team1Score = getTeamScore(members, teamSlots, "team1");
-    const team2Score = getTeamScore(members, teamSlots, "team2");
-    const scoreDiff = Math.abs(team1Score - team2Score);
-  
-    return {
-      title: `점수 차이 ${scoreDiff}점 밸런스`,
-      summary: `1팀 총점은 ${team1Score}점, 2팀 총점은 ${team2Score}점입니다.`,
-      scorePoint: `이번 배치는 팀 총점 차이를 최대한 줄인 상태에서 라인 배치까지 함께 고려한 결과입니다. 단순히 강한 사람을 나누는 게 아니라, 각 라인에서 게임이 너무 한쪽으로 터지지 않도록 맞춘 배치입니다.`,
-      team1Point: `1팀은 각 라인 배치 기준 총점 ${team1Score}점입니다.`,
-      team2Point: `2팀은 각 라인 배치 기준 총점 ${team2Score}점입니다.`,
-      lineAnalysis: LINES.map((line) => {
-        const team1Member = getMemberByName(members, teamSlots.team1[line]);
-        const team2Member = getMemberByName(members, teamSlots.team2[line]);
-  
-        return {
-          line,
-          title: `${team1Member?.nickname ?? teamSlots.team1[line]} vs ${
-            team2Member?.nickname ?? teamSlots.team2[line]
-          }`,
-          content: `이 라인은 단순 점수보다 초반 라인전 안정성과 정글 개입 타이밍이 중요합니다. 한쪽이 무리하게 터뜨리려 하기보다, 시야와 합류 타이밍에서 차이를 만드는 쪽이 유리합니다.`,
-        };
-      }),
-      keyPoint:
-        "점수 차이 최소화를 최우선으로 두고, 같은 점수 차이 후보 안에서 라인 선호도와 라인별 격차가 덜 무너지는 배치를 선택했습니다.",
-      winCondition: {
-        team1:
-          "우세한 라인에서 초반 주도권을 잡고, 약한 라인은 무리하지 않는 운영이 중요합니다.",
-        team2:
-          "라인별 격차가 큰 구간을 피하고, 강한 라인을 중심으로 합류 싸움을 만드는 쪽이 좋습니다.",
-      },
-    };
-  };
-
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -466,15 +429,17 @@ export async function POST(request: Request) {
     const team2Score = getTeamScore(members, bestTeamSlots, "team2");
     const scoreDiff = Math.abs(team1Score - team2Score);
 
-    const fallbackAnalysis = buildFallbackAnalysis(members, bestTeamSlots);
     const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
-      return Response.json({
-        teamSlots: bestTeamSlots,
-        analysis: fallbackAnalysis,
-        warnings: [],
-      });
+      return Response.json(
+        {
+          teamSlots: bestTeamSlots,
+          analysis: null,
+          warnings: ["OPENAI_API_KEY가 설정되지 않았습니다."],
+        },
+        { status: 500 }
+      );
     }
 
     const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
@@ -503,45 +468,43 @@ export async function POST(request: Request) {
                 text: `
                 너는 리그 오브 레전드 내전 밸런스 분석가다.
                 
-                팀 배치는 서버에서 이미 팀 총점 차이가 최소가 되도록 계산했다.
-                너는 팀을 다시 짜지 말고, 아래 확정 배치에 대한 "전략적 시사점"과 "매치업 분석"만 작성해라.
+                중요:
+                - 팀 배치는 이미 서버에서 확정했다.
+                - 너는 절대 팀을 다시 짜지 않는다.
+                - 너는 아래 확정 배치를 기준으로 실제 내전 시작 전에 보여줄 "밸런스 리포트"를 작성한다.
+                - 하드코딩처럼 일반론을 쓰지 말고, 반드시 제공된 멤버 이름, 닉네임, 티어, 주라인, 부라인, 배치 라인을 근거로 작성한다.
+                - "점수 차이 몇 점"을 반복하지 마라.
+                - 점수는 참고 자료일 뿐이고, 최종 출력은 경기 흐름, 시사점, 변수, 운영 방향 중심이어야 한다.
+                - 라인별 분석도 "몇 점 차이"가 아니라 "이 라인에서 어떤 일이 벌어질 가능성이 큰지"를 써라.
                 
-                가장 중요한 기준:
-                - 점수 차이는 계산 근거일 뿐, 사용자에게 보여줄 핵심은 "이 경기가 어떻게 흘러갈지"다.
-                - 단순히 "몇 점 차이입니다"를 반복하지 마라.
-                - 각 라인별 점수차 설명을 길게 하지 마라.
-                - 각 라인의 핵심은 "누가 몇 점 높다"가 아니라 "이 라인에서 어떤 플레이가 중요해지는가"다.
-                - 라인별 분석은 초반 주도권, 갱킹 호응, 라인전 안정성, 한타 영향력, 변수 창출 가능성 중심으로 작성해라.
-                - 팀 전체 분석은 조합/운영 느낌으로 작성해라.
-                - 내전 시작 전에 사람들이 읽었을 때 재밌고 납득되는 말투로 써라.
-                - 너무 과장하지 말고, 실제 티어/주라인/부라인/라인 배치를 근거로 분석해라.
-                - 특정 사람을 조롱하거나 비하하지 마라.
+                분석 기준:
+                - 현재 티어와 최고 티어를 같이 고려한다.
+                - 주라인 배치인지, 부라인 배치인지, 비선호 라인 배치인지 고려한다.
+                - 같은 라인 상대와 비교해서 라인전 안정성, 초반 주도권, 갱킹 호응, 한타 영향력, 변수 창출 가능성을 분석한다.
+                - 팀 전체는 초반 운영, 중반 교전, 후반 한타, 강한 라인 활용 방식 중심으로 분석한다.
+                - 어느 팀이 무조건 이긴다고 단정하지 말고, 각 팀의 승리 조건을 분리해서 쓴다.
+                - 특정 사람을 조롱하거나 비하하지 않는다.
+                - 내전용으로 읽기 좋게, 딱딱한 보고서 말투보다 해설 느낌으로 작성한다.
+                
+                반드시 지킬 출력 품질:
+                - analysis.title은 이 매치업의 핵심 구도를 짧고 임팩트 있게 쓴다.
+                - analysis.summary는 전체 경기가 어떤 구도로 흘러갈지 2~3문장으로 쓴다.
+                - analysis.scorePoint는 점수 최소화 결과 자체보다, 왜 이 배치가 밸런스상 의미 있는지 설명한다.
+                - analysis.team1Point는 1팀의 강점, 약점, 조심할 점을 구체적으로 쓴다.
+                - analysis.team2Point는 2팀의 강점, 약점, 조심할 점을 구체적으로 쓴다.
+                - analysis.lineAnalysis는 반드시 탑, 정글, 미드, 원딜, 서폿 5개를 작성한다.
+                - lineAnalysis.title은 "탑: 초반 압박이 갈리는 라인" 같은 식으로 라인명과 시사점을 같이 담는다.
+                - lineAnalysis.content는 해당 라인의 실제 매치업 구도, 핵심 변수, 주의할 플레이를 2~3문장으로 쓴다.
+                - analysis.keyPoint는 이 경기 전체를 가를 핵심 변수 1~2개를 쓴다.
+                - analysis.winCondition.team1은 1팀이 이기려면 어떤 라인을 중심으로 어떻게 굴려야 하는지 쓴다.
+                - analysis.winCondition.team2는 2팀이 이기려면 어떤 라인을 중심으로 어떻게 굴려야 하는지 쓴다.
                 - warnings는 특별한 문제가 없으면 빈 배열로 둔다.
                 
-                작성 방향:
-                - title은 짧고 임팩트 있게 작성한다.
-                - summary는 "이 내전의 핵심 구도"를 요약한다.
-                - scorePoint는 점수차 자체보다 "왜 이 배치가 밸런스 관점에서 의미 있는지"를 설명한다.
-                - team1Point는 1팀의 강점, 약점, 조심할 부분을 함께 적는다.
-                - team2Point는 2팀의 강점, 약점, 조심할 부분을 함께 적는다.
-                - lineAnalysis는 반드시 탑, 정글, 미드, 원딜, 서폿 5개를 작성한다.
-                - lineAnalysis.title은 "라인전 압박 구도", "정글 개입이 핵심", "후반 보험 라인" 같은 식의 시사점 제목으로 작성한다.
-                - lineAnalysis.content는 점수차 나열이 아니라 해당 라인의 경기 흐름과 핵심 변수를 설명한다.
-                - keyPoint는 이 경기 전체를 가를 가장 큰 변수 1~2개를 작성한다.
-                - winCondition.team1은 1팀이 이기려면 어떤 식으로 굴려야 하는지 작성한다.
-                - winCondition.team2는 2팀이 이기려면 어떤 식으로 굴려야 하는지 작성한다.
-                
                 응답 형식:
+                - 반드시 JSON Schema에 맞춰 응답한다.
                 - analysis는 문자열이 아니라 객체다.
-                - analysis.title: 짧은 리포트 제목
-                - analysis.summary: 전체 구도 요약
-                - analysis.scorePoint: 점수 최소화 배치의 의미
-                - analysis.team1Point: 1팀 강점/약점/주의점
-                - analysis.team2Point: 2팀 강점/약점/주의점
-                - analysis.lineAnalysis: 탑, 정글, 미드, 원딜, 서폿 5개 배열
-                - analysis.keyPoint: 경기 핵심 변수
-                - analysis.winCondition.team1: 1팀 승리 플랜
-                - analysis.winCondition.team2: 2팀 승리 플랜
+                - analysis.lineAnalysis는 반드시 5개다.
+                - analysis.lineAnalysis의 line 값은 정확히 "탑", "정글", "미드", "원딜", "서폿" 중 하나다.
                 
                 확정 팀 배치:
                 ${JSON.stringify(bestTeamSlots, null, 2)}
@@ -567,40 +530,66 @@ export async function POST(request: Request) {
     const openAiData = await openAiResponse.json();
 
     if (!openAiResponse.ok) {
-      return Response.json({
-        teamSlots: bestTeamSlots,
-        analysis: fallbackAnalysis,
-        warnings: [],
-      });
-    }
+        return Response.json(
+          {
+            teamSlots: bestTeamSlots,
+            analysis: null,
+            warnings: [
+              openAiData.error?.message ?? "OpenAI 밸런스 분석 요청 실패",
+            ],
+          },
+          { status: 500 }
+        );
+      }
 
     const outputText = getOutputText(openAiData);
 
     if (!outputText) {
-      return Response.json({
-        teamSlots: bestTeamSlots,
-        analysis: fallbackAnalysis,
-        warnings: [],
-      });
-    }
+        return Response.json(
+          {
+            teamSlots: bestTeamSlots,
+            analysis: null,
+            warnings: ["AI 밸런스 분석 응답을 읽지 못했습니다."],
+          },
+          { status: 500 }
+        );
+      }
 
     let result: OpenAiAnalysisResponse | null = null;
 
     try {
-      result = JSON.parse(outputText) as OpenAiAnalysisResponse;
-    } catch {
+        result = JSON.parse(outputText) as OpenAiAnalysisResponse;
+      } catch {
+        return Response.json(
+          {
+            teamSlots: bestTeamSlots,
+            analysis: null,
+            warnings: ["AI 밸런스 분석 응답이 JSON 형식이 아닙니다."],
+          },
+          { status: 500 }
+        );
+      }
+
+      if (
+        !result.analysis ||
+        !Array.isArray(result.analysis.lineAnalysis) ||
+        result.analysis.lineAnalysis.length !== 5
+      ) {
+        return Response.json(
+          {
+            teamSlots: bestTeamSlots,
+            analysis: null,
+            warnings: ["AI 밸런스 분석 결과 형식이 올바르지 않습니다."],
+          },
+          { status: 500 }
+        );
+      }
+      
       return Response.json({
         teamSlots: bestTeamSlots,
-        analysis: fallbackAnalysis,
-        warnings: [],
-      });
-    }
-
-    return Response.json({
-      teamSlots: bestTeamSlots,
-      analysis: result.analysis || fallbackAnalysis,
-      warnings: result.warnings ?? [],
-    } satisfies AnalyzeAutoBalanceTeamsResponse);
+        analysis: result.analysis,
+        warnings: result.warnings ?? [],
+      } satisfies AnalyzeAutoBalanceTeamsResponse);
   } catch (error) {
     console.error("AI 자동 팀짜기 실패:", error);
 
