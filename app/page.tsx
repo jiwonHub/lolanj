@@ -1972,7 +1972,7 @@ export default function Home() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="relative w-[180px]">
+                  <div className="h-[72px] w-[180px]">
                     <button
                       onClick={autoBalanceTeams}
                       disabled={!canAutoBalanceTeams || isAutoBalancing}
@@ -1985,7 +1985,7 @@ export default function Home() {
                     </button>
 
                     {autoBalanceErrorMessage && (
-                      <p className="absolute left-0 top-[54px] w-[260px] text-xs font-semibold text-red-400">
+                      <p className="mt-2 truncate text-xs font-semibold text-red-400">
                         {autoBalanceErrorMessage}
                       </p>
                     )}
