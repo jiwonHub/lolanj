@@ -1972,11 +1972,11 @@ export default function Home() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="h-[72px] w-[180px]">
+                  <div className="flex min-h-[72px] w-[360px] flex-col items-end">
                     <button
                       onClick={autoBalanceTeams}
                       disabled={!canAutoBalanceTeams || isAutoBalancing}
-                      className={`h-[48px] w-full rounded-lg px-5 py-3 font-semibold ${canAutoBalanceTeams && !isAutoBalancing
+                      className={`h-[48px] w-[180px] rounded-lg px-5 py-3 font-semibold ${canAutoBalanceTeams && !isAutoBalancing
                         ? "bg-emerald-600 text-white hover:bg-emerald-500"
                         : "cursor-not-allowed bg-slate-700 text-slate-400"
                         }`}
@@ -1985,7 +1985,7 @@ export default function Home() {
                     </button>
 
                     {autoBalanceErrorMessage && (
-                      <p className="mt-2 truncate text-xs font-semibold text-red-400">
+                      <p className="mt-2 max-w-[360px] whitespace-nowrap text-right text-xs font-semibold text-red-400">
                         {autoBalanceErrorMessage}
                       </p>
                     )}
