@@ -404,8 +404,8 @@ const buildFallbackAnalysis = (
   
     return {
       title: `점수 차이 ${scoreDiff}점 밸런스`,
-      summary: `서버 계산 기준으로 팀 총점 차이가 가장 작게 나오도록 배치했습니다. 1팀 총점은 ${team1Score}점, 2팀 총점은 ${team2Score}점입니다.`,
-      scorePoint: `이번 배치는 팀 총점 차이 최소화를 최우선으로 계산한 결과입니다. 현재 점수 차이는 ${scoreDiff}점입니다.`,
+      summary: `1팀 총점은 ${team1Score}점, 2팀 총점은 ${team2Score}점입니다.`,
+      scorePoint: `이번 배치는 팀 총점 차이를 최대한 줄인 상태에서 라인 배치까지 함께 고려한 결과입니다. 단순히 강한 사람을 나누는 게 아니라, 각 라인에서 게임이 너무 한쪽으로 터지지 않도록 맞춘 배치입니다.`,
       team1Point: `1팀은 각 라인 배치 기준 총점 ${team1Score}점입니다.`,
       team2Point: `2팀은 각 라인 배치 기준 총점 ${team2Score}점입니다.`,
       lineAnalysis: LINES.map((line) => {
@@ -417,12 +417,7 @@ const buildFallbackAnalysis = (
           title: `${team1Member?.nickname ?? teamSlots.team1[line]} vs ${
             team2Member?.nickname ?? teamSlots.team2[line]
           }`,
-          content: `라인 점수 기준으로 ${
-            Math.abs(
-              getMemberLineScore(team1Member!, line) -
-                getMemberLineScore(team2Member!, line)
-            )
-          }점 차이 매치업입니다.`,
+          content: `이 라인은 단순 점수보다 초반 라인전 안정성과 정글 개입 타이밍이 중요합니다. 한쪽이 무리하게 터뜨리려 하기보다, 시야와 합류 타이밍에서 차이를 만드는 쪽이 유리합니다.`,
         };
       }),
       keyPoint:
@@ -506,34 +501,62 @@ export async function POST(request: Request) {
               {
                 type: "input_text",
                 text: `
-너는 리그 오브 레전드 내전 밸런스 분석가다.
-
-팀 배치는 서버에서 이미 점수 차이가 최소가 되도록 계산했다.
-너는 팀을 다시 짜지 말고, 아래 확정 배치에 대한 분석글만 작성해라.
-
-최우선 기준:
-- 이 배치는 팀 총점 차이 최소화를 최우선으로 계산된 결과다.
-- 분석글에서 점수 차이가 최소화된 점을 반드시 언급해라.
-- 라인 선호도와 라인별 매치업도 함께 설명해라.
-- 한국어로 작성해라.
-- 너무 딱딱하게 쓰지 말고, 내전 시작 전에 읽기 좋은 톤으로 써라.
-- 분석글에는 전체 밸런스 총평, 라인별 매치업, 핵심 변수, 1팀 승리 플랜, 2팀 승리 플랜을 포함해라.
-- warnings는 특별한 문제가 없으면 빈 배열로 둔다.
-
-확정 팀 배치:
-${JSON.stringify(bestTeamSlots, null, 2)}
-
-점수 요약:
-- 1팀 총점: ${team1Score}
-- 2팀 총점: ${team2Score}
-- 점수 차이: ${scoreDiff}
-
-1팀 상세:
-${JSON.stringify(buildMemberSummary(members, bestTeamSlots, "team1"), null, 2)}
-
-2팀 상세:
-${JSON.stringify(buildMemberSummary(members, bestTeamSlots, "team2"), null, 2)}
-`,
+                너는 리그 오브 레전드 내전 밸런스 분석가다.
+                
+                팀 배치는 서버에서 이미 팀 총점 차이가 최소가 되도록 계산했다.
+                너는 팀을 다시 짜지 말고, 아래 확정 배치에 대한 "전략적 시사점"과 "매치업 분석"만 작성해라.
+                
+                가장 중요한 기준:
+                - 점수 차이는 계산 근거일 뿐, 사용자에게 보여줄 핵심은 "이 경기가 어떻게 흘러갈지"다.
+                - 단순히 "몇 점 차이입니다"를 반복하지 마라.
+                - 각 라인별 점수차 설명을 길게 하지 마라.
+                - 각 라인의 핵심은 "누가 몇 점 높다"가 아니라 "이 라인에서 어떤 플레이가 중요해지는가"다.
+                - 라인별 분석은 초반 주도권, 갱킹 호응, 라인전 안정성, 한타 영향력, 변수 창출 가능성 중심으로 작성해라.
+                - 팀 전체 분석은 조합/운영 느낌으로 작성해라.
+                - 내전 시작 전에 사람들이 읽었을 때 재밌고 납득되는 말투로 써라.
+                - 너무 과장하지 말고, 실제 티어/주라인/부라인/라인 배치를 근거로 분석해라.
+                - 특정 사람을 조롱하거나 비하하지 마라.
+                - warnings는 특별한 문제가 없으면 빈 배열로 둔다.
+                
+                작성 방향:
+                - title은 짧고 임팩트 있게 작성한다.
+                - summary는 "이 내전의 핵심 구도"를 요약한다.
+                - scorePoint는 점수차 자체보다 "왜 이 배치가 밸런스 관점에서 의미 있는지"를 설명한다.
+                - team1Point는 1팀의 강점, 약점, 조심할 부분을 함께 적는다.
+                - team2Point는 2팀의 강점, 약점, 조심할 부분을 함께 적는다.
+                - lineAnalysis는 반드시 탑, 정글, 미드, 원딜, 서폿 5개를 작성한다.
+                - lineAnalysis.title은 "라인전 압박 구도", "정글 개입이 핵심", "후반 보험 라인" 같은 식의 시사점 제목으로 작성한다.
+                - lineAnalysis.content는 점수차 나열이 아니라 해당 라인의 경기 흐름과 핵심 변수를 설명한다.
+                - keyPoint는 이 경기 전체를 가를 가장 큰 변수 1~2개를 작성한다.
+                - winCondition.team1은 1팀이 이기려면 어떤 식으로 굴려야 하는지 작성한다.
+                - winCondition.team2는 2팀이 이기려면 어떤 식으로 굴려야 하는지 작성한다.
+                
+                응답 형식:
+                - analysis는 문자열이 아니라 객체다.
+                - analysis.title: 짧은 리포트 제목
+                - analysis.summary: 전체 구도 요약
+                - analysis.scorePoint: 점수 최소화 배치의 의미
+                - analysis.team1Point: 1팀 강점/약점/주의점
+                - analysis.team2Point: 2팀 강점/약점/주의점
+                - analysis.lineAnalysis: 탑, 정글, 미드, 원딜, 서폿 5개 배열
+                - analysis.keyPoint: 경기 핵심 변수
+                - analysis.winCondition.team1: 1팀 승리 플랜
+                - analysis.winCondition.team2: 2팀 승리 플랜
+                
+                확정 팀 배치:
+                ${JSON.stringify(bestTeamSlots, null, 2)}
+                
+                점수 요약:
+                - 1팀 총점: ${team1Score}
+                - 2팀 총점: ${team2Score}
+                - 점수 차이: ${scoreDiff}
+                
+                1팀 상세:
+                ${JSON.stringify(buildMemberSummary(members, bestTeamSlots, "team1"), null, 2)}
+                
+                2팀 상세:
+                ${JSON.stringify(buildMemberSummary(members, bestTeamSlots, "team2"), null, 2)}
+                `,
               },
             ],
           },
