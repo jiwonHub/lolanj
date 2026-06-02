@@ -429,7 +429,7 @@ export async function POST(request: Request) {
     const team2Score = getTeamScore(members, bestTeamSlots, "team2");
     const scoreDiff = Math.abs(team1Score - team2Score);
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
 
     if (!apiKey) {
       return Response.json(
