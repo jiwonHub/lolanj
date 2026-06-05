@@ -3,31 +3,32 @@ import type { LineKey, Member, TeamKey } from "../../shared/types";
 export type AnalyzeAutoBalanceTeamsResponse = {
     teamSlots: Record<TeamKey, Record<LineKey, string>>;
     analysis: {
-      title: string;
-      summary: string;
-      scorePoint: string;
-      team1Point: string;
-      team2Point: string;
-      lineAnalysis: {
-        line: LineKey;
         title: string;
-        content: string;
-      }[];
-      keyPoint: string;
-      winCondition: {
-        team1: string;
-        team2: string;
-      };
-    };
+        summary: string;
+        scorePoint: string;
+        team1Point: string;
+        team2Point: string;
+        lineAnalysis: {
+            line: LineKey;
+            title: string;
+            content: string;
+        }[];
+        keyPoint: string;
+        winCondition: {
+            team1: string;
+            team2: string;
+        };
+    } | null;
     warnings: string[];
-  };
+};
 
 export type AutoBalanceMember = Member & {
     line_scores: Record<LineKey, number>;
 };
 
 export const analyzeAutoBalanceTeamsApi = async (
-    members: AutoBalanceMember[]
+    members: AutoBalanceMember[],
+    customRequest: string
 ) => {
     const response = await fetch("/api/analyze-auto-balance", {
         method: "POST",
@@ -35,6 +36,7 @@ export const analyzeAutoBalanceTeamsApi = async (
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
+            customRequest,
             members: members.map((member) => ({
                 id: member.id,
                 name: member.name,

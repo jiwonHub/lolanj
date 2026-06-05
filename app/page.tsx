@@ -118,6 +118,13 @@ export default function Home() {
   const [memberListSearchName, setMemberListSearchName] = useState("");
   const [memberListPage, setMemberListPage] = useState(1);
   const [isAutoBalancing, setIsAutoBalancing] = useState(false);
+  const [autoBalancePhase, setAutoBalancePhase] = useState("");
+  const [autoBalanceSearchName, setAutoBalanceSearchName] = useState("");
+  const [autoBalanceSelectedMembers, setAutoBalanceSelectedMembers] = useState<
+    Member[]
+  >([]);
+  const [autoBalanceCustomRequest, setAutoBalanceCustomRequest] = useState("");
+  const [isAutoBalanceResultOpen, setIsAutoBalanceResultOpen] = useState(false);
   const [autoBalanceAnalysis, setAutoBalanceAnalysis] =
     useState<AnalyzeAutoBalanceTeamsResponse["analysis"] | null>(null);
 
@@ -608,54 +615,69 @@ export default function Home() {
       : `2팀 우세 +${diff}`;
   };
 
-  const getBalanceSlotNames = () => {
-    return [
-      ...LINES.map((line) => teamSlots.team1[line].trim()),
-      ...LINES.map((line) => teamSlots.team2[line].trim()),
-    ];
+  const filteredAutoBalanceMembers = members.filter((member) => {
+    const keyword = autoBalanceSearchName.trim().toLowerCase();
+    const isSelected = autoBalanceSelectedMembers.some(
+      (selectedMember) => selectedMember.id === member.id
+    );
+
+    if (isSelected) {
+      return false;
+    }
+
+    if (!keyword) {
+      return true;
+    }
+
+    return (
+      member.name.toLowerCase().includes(keyword) ||
+      member.nickname.toLowerCase().includes(keyword) ||
+      member.current_tier.toLowerCase().includes(keyword) ||
+      member.highest_tier.toLowerCase().includes(keyword) ||
+      member.main_line.toLowerCase().includes(keyword) ||
+      (member.sub_line ?? "").toLowerCase().includes(keyword)
+    );
+  });
+
+  const addAutoBalanceMember = (member: Member) => {
+    if (autoBalanceSelectedMembers.length >= 10) {
+      alert("참여자는 최대 10명까지 선택할 수 있습니다.");
+      return;
+    }
+
+    if (
+      autoBalanceSelectedMembers.some(
+        (selectedMember) => selectedMember.id === member.id
+      )
+    ) {
+      return;
+    }
+
+    setAutoBalanceSelectedMembers([...autoBalanceSelectedMembers, member]);
+    setAutoBalanceSearchName("");
+    setAutoBalanceAnalysis(null);
+    setIsAutoBalanceResultOpen(false);
   };
 
-  const getAutoBalanceMembers = () => {
-    const names = getBalanceSlotNames();
-
-    if (names.some((name) => !name)) {
-      return null;
-    }
-
-    const foundMembers = names.map((name) => findMemberByInput(name));
-
-    if (foundMembers.some((member) => member === null)) {
-      return null;
-    }
-
-    const uniqueNames = new Set(names.map((name) => name.toLowerCase()));
-
-    if (uniqueNames.size !== 10) {
-      return null;
-    }
-
-    return foundMembers as Member[];
+  const removeAutoBalanceMember = (memberId: string) => {
+    setAutoBalanceSelectedMembers(
+      autoBalanceSelectedMembers.filter((member) => member.id !== memberId)
+    );
+    setAutoBalanceAnalysis(null);
+    setIsAutoBalanceResultOpen(false);
   };
 
   const getAutoBalanceErrorMessage = () => {
-    const names = getBalanceSlotNames();
-
-    if (names.some((name) => !name)) {
-      return "10명의 모임원 이름을 모두 입력해야 합니다.";
+    if (autoBalanceSelectedMembers.length !== 10) {
+      return `참여자 10명을 선택해야 합니다. 현재 ${autoBalanceSelectedMembers.length}명`;
     }
 
-    const foundMembers = names.map((name) => findMemberByInput(name));
+    const uniqueMemberIds = new Set(
+      autoBalanceSelectedMembers.map((member) => member.id)
+    );
 
-    if (foundMembers.some((member) => member === null)) {
-      return "모임원 리스트에 없는 이름이 있습니다.";
-    }
-
-    const duplicatedNames = names.filter((name, index, array) => {
-      return array.findIndex((item) => item.toLowerCase() === name.toLowerCase()) !== index;
-    });
-
-    if (duplicatedNames.length > 0) {
-      return `중복된 이름이 있습니다: ${[...new Set(duplicatedNames)].join(", ")}`;
+    if (uniqueMemberIds.size !== 10) {
+      return "중복된 참여자가 있습니다.";
     }
 
     return "";
@@ -666,19 +688,24 @@ export default function Home() {
   const canAutoBalanceTeams = !autoBalanceErrorMessage;
 
   const autoBalanceTeams = async () => {
-    const targetMembers = getAutoBalanceMembers();
-
-    if (!targetMembers) {
-      alert("10명의 모임원 이름을 중복 없이 모두 입력해야 합니다.");
+    if (!canAutoBalanceTeams) {
+      alert("참여자 10명을 중복 없이 선택해야 합니다.");
       return;
     }
 
+    let phaseTimer: ReturnType<typeof setTimeout> | null = null;
+
     try {
       setIsAutoBalancing(true);
+      setAutoBalancePhase("팀 조합 계산 중...");
       setAutoBalanceAnalysis(null);
 
+      phaseTimer = setTimeout(() => {
+        setAutoBalancePhase("AI 분석 생성 중...");
+      }, 700);
+
       const result = await analyzeAutoBalanceTeamsApi(
-        targetMembers.map((member) => ({
+        autoBalanceSelectedMembers.map((member) => ({
           ...member,
           line_scores: {
             탑: calculateMemberScore(member, "탑"),
@@ -687,11 +714,13 @@ export default function Home() {
             원딜: calculateMemberScore(member, "원딜"),
             서폿: calculateMemberScore(member, "서폿"),
           },
-        }))
+        })),
+        autoBalanceCustomRequest
       );
 
       setTeamSlots(result.teamSlots);
       setAutoBalanceAnalysis(result.analysis);
+      setIsAutoBalanceResultOpen(true);
 
       if (result.warnings.length > 0) {
         alert(result.warnings[0]);
@@ -705,7 +734,12 @@ export default function Home() {
         alert("AI 자동 팀짜기 실패");
       }
     } finally {
+      if (phaseTimer) {
+        clearTimeout(phaseTimer);
+      }
+
       setIsAutoBalancing(false);
+      setAutoBalancePhase("");
     }
   };
 
@@ -799,6 +833,8 @@ export default function Home() {
       team1: teamSlots.team2,
       team2: teamSlots.team1,
     });
+    setAutoBalanceAnalysis(null);
+    setIsAutoBalanceResultOpen(false);
   };
 
   const swapRecordTeams = () => {
@@ -1961,345 +1997,479 @@ export default function Home() {
           )}
 
           {activeMenu === "balance" && (
-            <div className="rounded-2xl border border-slate-800 bg-[#0b1424] p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-3xl font-bold">협곡 내전 밸런스</h2>
-                  <p className="mt-2 text-slate-400">
-                    이름 또는 닉네임을 입력하면 티어/라인 기반 점수가
-                    계산됩니다.
-                  </p>
-                </div>
+            <>
+              <div className="rounded-2xl border border-slate-800 bg-[#0b1424] p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-3xl font-bold">협곡 내전 밸런스</h2>
+                    <p className="mt-2 text-slate-400">
+                      참여자 10명을 선택하고 추가 주문 사항을 반영해 팀을 자동으로
+                      구성합니다.
+                    </p>
+                  </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="flex min-h-[72px] w-[360px] flex-col items-end">
+                  <div className="flex items-center gap-3">
                     <button
                       onClick={autoBalanceTeams}
                       disabled={!canAutoBalanceTeams || isAutoBalancing}
-                      className={`h-[48px] w-[180px] rounded-lg px-5 py-3 font-semibold ${canAutoBalanceTeams && !isAutoBalancing
+                      className={`h-[74px] w-[180px] rounded-xl px-5 py-3 font-semibold ${canAutoBalanceTeams && !isAutoBalancing
                         ? "bg-emerald-600 text-white hover:bg-emerald-500"
                         : "cursor-not-allowed bg-slate-700 text-slate-400"
                         }`}
                     >
-                      {isAutoBalancing ? "AI 팀짜는 중..." : "AI 자동 팀짜기"}
+                      {isAutoBalancing
+                        ? autoBalancePhase || "AI 팀짜는 중..."
+                        : "AI 자동 팀짜기"}
                     </button>
 
-                    {autoBalanceErrorMessage && (
-                      <p className="mt-2 max-w-[360px] whitespace-nowrap text-right text-xs font-semibold text-red-400">
-                        {autoBalanceErrorMessage}
-                      </p>
+                    {autoBalanceAnalysis && (
+                      <button
+                        onClick={() => setIsAutoBalanceResultOpen(true)}
+                        className="h-[74px] rounded-xl border border-emerald-700 bg-emerald-950/40 px-5 py-3 text-sm font-bold text-emerald-300 hover:bg-emerald-900/40"
+                      >
+                        결과 다시 보기
+                      </button>
                     )}
                   </div>
-
-                  <div className="rounded-xl border border-slate-700 bg-[#111c2e] px-5 py-3 text-right">
-                    <p className="text-xs text-slate-400">밸런스 결과</p>
-                    <p
-                      className={`mt-1 text-lg font-bold ${getTeamTotalScore("team1") === getTeamTotalScore("team2")
-                        ? "text-slate-200"
-                        : getTeamTotalScore("team1") > getTeamTotalScore("team2")
-                          ? "text-blue-400"
-                          : "text-red-400"
-                        }`}
-                    >
-                      {getTeamResultText()}
-                    </p>
-                  </div>
                 </div>
-              </div>
 
-              <datalist id="member-list">
-                {members.map((member) => (
-                  <option key={member.id} value={member.name} />
-                ))}
-              </datalist>
+                <datalist id="member-list">
+                  {members.map((member) => (
+                    <option key={member.id} value={member.name} />
+                  ))}
+                </datalist>
 
-              <div className="mt-6 grid grid-cols-[1fr_90px_1fr] gap-4">
-                <div className="rounded-2xl border border-blue-900/60 bg-blue-950/30 p-5">
-                  <div className="mb-5 flex items-center justify-between">
-                    <h4 className="text-lg font-bold text-blue-300">1팀</h4>
-                    <span className="rounded-full bg-blue-900 px-4 py-1 text-sm font-semibold text-blue-200">
-                      총점 {getTeamTotalScore("team1")}
-                    </span>
-                  </div>
+                <div className="mt-6 grid grid-cols-2 gap-5">
+                  <div className="flex h-[500px] flex-col rounded-2xl border border-slate-800 bg-[#07101f] p-5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold">참여자 검색</h3>
+                        <p className="mt-1 text-sm text-slate-400">
+                          이름, 닉네임, 티어, 라인으로 검색 후 참가 버튼을 누르세요.
+                        </p>
 
-                  <div className="space-y-3">
-                    {LINES.map((line) => {
-                      const member = getSlotMember("team1", line);
-                      const score = getSlotScore("team1", line);
-                      const diff = getLineDiff(line);
+                        {autoBalanceErrorMessage && (
+                          <p className="mt-2 text-sm font-semibold text-red-400">
+                            {autoBalanceErrorMessage}
+                          </p>
+                        )}
+                      </div>
 
-                      return (
+                      <span className="rounded-full bg-slate-800 px-4 py-1 text-sm font-bold text-slate-300">
+                        {autoBalanceSelectedMembers.length}/10
+                      </span>
+                    </div>
+
+                    <input
+                      className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
+                      placeholder="참여자 검색"
+                      value={autoBalanceSearchName}
+                      onChange={(e) => setAutoBalanceSearchName(e.target.value)}
+                    />
+
+                    <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                      {filteredAutoBalanceMembers.slice(0, 20).map((member) => (
                         <div
-                          key={`team1-${line}`}
-                          className={`rounded-xl border p-4 ${diff > 0
-                            ? "border-blue-500/60 bg-blue-900/30"
-                            : "border-slate-800 bg-[#111c2e]"
-                            }`}
+                          key={`auto-balance-search-${member.id}`}
+                          className="flex items-center justify-between rounded-xl border border-slate-800 bg-[#111c2e] p-3 transition-all duration-300 hover:translate-x-1 hover:border-blue-500/60"
                         >
-                          <div className="mb-2 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <span className="rounded-md bg-slate-800 px-3 py-1 text-sm font-bold">
-                                {line}
-                              </span>
-
-                              {member && (
-                                <span className="text-base font-bold text-blue-300">
-                                  {member.nickname}
-                                </span>
-                              )}
-                            </div>
-
-                            <span className="text-sm font-semibold text-blue-300">
-                              {score}점
-                            </span>
+                          <div>
+                            <p className="font-bold text-slate-100">{member.name}</p>
+                            <p className="text-sm text-slate-400">{member.nickname}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              현재 {member.current_tier} · 최고 {member.highest_tier} · 주{" "}
+                              {member.main_line} · 부 {member.sub_line}
+                            </p>
                           </div>
-                          <input
-                            list="member-list"
-                            className={`w-full rounded-lg border bg-[#07101f] px-3 py-2 outline-none ${isUnknownMemberName(teamSlots.team1[line])
-                              ? "border-red-500 text-red-300"
-                              : "border-slate-700"
+
+                          <button
+                            onClick={() => addAutoBalanceMember(member)}
+                            disabled={autoBalanceSelectedMembers.length >= 10}
+                            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${autoBalanceSelectedMembers.length < 10
+                              ? "bg-blue-600 text-white hover:bg-blue-500"
+                              : "cursor-not-allowed bg-slate-700 text-slate-400"
                               }`}
-                            placeholder={`${line} 이름 입력`}
-                            value={teamSlots.team1[line]}
-                            onChange={(e) =>
-                              setTeamSlots({
-                                ...teamSlots,
-                                team1: {
-                                  ...teamSlots.team1,
-                                  [line]: e.target.value,
-                                },
-                              })
-                            }
-                          />
-                          <div className="mt-2 min-h-6 text-sm">
-                            {isUnknownMemberName(teamSlots.team1[line]) && (
-                              <p className="font-semibold text-red-400">
-                                모임원 리스트에 없는 이름입니다.
-                              </p>
-                            )}
-
-                            {member && (
-                              <p className="font-medium text-slate-300">
-                                현재 {member.current_tier} · 최고 {member.highest_tier} · 주{" "}
-                                {member.main_line} · 부 {member.sub_line}
-                              </p>
-                            )}
-                          </div>
+                          >
+                            참가
+                          </button>
                         </div>
-                      );
-                    })}
+                      ))}
+
+                      {filteredAutoBalanceMembers.length === 0 && (
+                        <div className="rounded-xl border border-slate-800 bg-[#111c2e] p-5 text-center text-sm text-slate-400">
+                          검색 결과가 없습니다.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex flex-col items-center justify-center gap-3">
-                  <button
-                    onClick={swapBalanceTeams}
-                    className="mb-2 rounded-xl border border-slate-700 bg-[#07101f] px-4 py-3 text-xl font-bold text-slate-200 hover:bg-slate-800"
-                    title="1팀과 2팀 위치 바꾸기"
-                  >
-                    ⇄
-                  </button>
-
-                  {LINES.map((line) => {
-                    const diff = getLineDiff(line);
-
-                    return (
-                      <div
-                        key={`diff-${line}`}
-                        className="flex h-[86px] w-full flex-col items-center justify-center rounded-xl border border-slate-800 bg-[#111c2e]"
-                      >
-                        <p className="text-xs text-slate-400">{line}</p>
-                        <p
-                          className={`mt-1 text-sm font-bold ${diff === 0
-                            ? "text-slate-300"
-                            : diff > 0
-                              ? "text-blue-400"
-                              : "text-red-400"
-                            }`}
-                        >
-                          {diff === 0
-                            ? "동률"
-                            : diff > 0
-                              ? `1팀 +${Math.abs(diff)}`
-                              : `2팀 +${Math.abs(diff)}`}
+                  <div className="flex h-[500px] flex-col rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-emerald-300">
+                          참여자 목록
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-400">
+                          선택된 10명 기준으로 팀을 구성합니다.
                         </p>
                       </div>
-                    );
-                  })}
+
+                      {autoBalanceSelectedMembers.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setAutoBalanceSelectedMembers([]);
+                            setAutoBalanceAnalysis(null);
+                            setIsAutoBalanceResultOpen(false);
+                          }}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800"
+                        >
+                          전체 삭제
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-2 overflow-y-auto pr-1 [grid-auto-rows:74px]">
+                      {autoBalanceSelectedMembers.map((member, index) => (
+                        <div
+                          key={`auto-balance-selected-${member.id}`}
+                          className="flex h-[74px] animate-[slideIn_0.25s_ease-out] items-center justify-between rounded-xl border border-emerald-800/60 bg-[#102417] p-3 transition-all duration-300"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-sm font-black text-white">
+                              {index + 1}
+                            </span>
+
+                            <div>
+                              <p className="font-bold text-white">{member.name}</p>
+                              <p className="text-sm text-emerald-200">
+                                {member.nickname}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => removeAutoBalanceMember(member.id)}
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-red-500/60 bg-red-950/40 text-sm font-black text-red-300 hover:bg-red-900"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+
+                      {autoBalanceSelectedMembers.length === 0 && (
+                        <div className="col-span-2 flex h-full items-center justify-center rounded-xl border border-dashed border-slate-700 text-sm text-slate-500">
+                          왼쪽에서 참가 버튼을 누르면 여기에 추가됩니다.
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="rounded-2xl border border-red-900/60 bg-red-950/30 p-5">
-                  <div className="mb-5 flex items-center justify-between">
-                    <h4 className="text-lg font-bold text-red-300">2팀</h4>
-                    <span className="rounded-full bg-red-900 px-4 py-1 text-sm font-semibold text-red-200">
-                      총점 {getTeamTotalScore("team2")}
-                    </span>
-                  </div>
+                <div className="mt-8 rounded-2xl border border-slate-800 bg-[#07101f] p-5">
+                  <label className="mb-3 block text-lg font-bold">추가 주문 사항</label>
+                  <textarea
+                    className="min-h-[120px] w-full resize-none rounded-xl border border-slate-700 bg-[#111c2e] px-4 py-3 text-sm outline-none"
+                    placeholder={`예시)\n- 홍길동과 김철수는 같은 팀으로 보내줘\n- 박영희는 미드로 고정해줘\n- 이 두 사람은 서로 다른 팀으로 나눠줘\n- 최대한 주라인 위주로 배치해줘`}
+                    value={autoBalanceCustomRequest}
+                    onChange={(e) => {
+                      setAutoBalanceCustomRequest(e.target.value);
+                      setAutoBalanceAnalysis(null);
+                      setIsAutoBalanceResultOpen(false);
+                    }}
+                  />
 
-                  <div className="space-y-3">
-                    {LINES.map((line) => {
-                      const member = getSlotMember("team2", line);
-                      const score = getSlotScore("team2", line);
-                      const diff = getLineDiff(line);
-
-                      return (
-                        <div
-                          key={`team2-${line}`}
-                          className={`rounded-xl border p-4 ${diff < 0
-                            ? "border-red-500/60 bg-red-900/30"
-                            : "border-slate-800 bg-[#111c2e]"
-                            }`}
-                        >
-                          <div className="mb-2 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <span className="rounded-md bg-slate-800 px-3 py-1 text-sm font-bold">
-                                {line}
-                              </span>
-
-                              {member && (
-                                <span className="text-base font-bold text-red-300">
-                                  {member.nickname}
-                                </span>
-                              )}
-                            </div>
-
-                            <span className="text-sm font-semibold text-red-300">
-                              {score}점
-                            </span>
-                          </div>
-
-                          <input
-                            list="member-list"
-                            className={`w-full rounded-lg border bg-[#07101f] px-3 py-2 outline-none ${isUnknownMemberName(teamSlots.team2[line])
-                              ? "border-red-500 text-red-300"
-                              : "border-slate-700"
-                              }`}
-                            placeholder={`${line} 이름 입력`}
-                            value={teamSlots.team2[line]}
-                            onChange={(e) =>
-                              setTeamSlots({
-                                ...teamSlots,
-                                team2: {
-                                  ...teamSlots.team2,
-                                  [line]: e.target.value,
-                                },
-                              })
-                            }
-                          />
-
-                          <div className="mt-2 min-h-6 text-sm">
-                            {isUnknownMemberName(teamSlots.team2[line]) && (
-                              <p className="font-semibold text-red-400">
-                                모임원 리스트에 없는 이름입니다.
-                              </p>
-                            )}
-
-                            {member && (
-                              <p className="font-medium text-slate-300">
-                                현재 {member.current_tier} · 최고 {member.highest_tier} · 주{" "}
-                                {member.main_line} · 부 {member.sub_line}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    추가 주문은 서버에서 제약조건으로 해석한 뒤 팀 조합 계산에 반영됩니다.
+                  </p>
                 </div>
               </div>
-              {autoBalanceAnalysis && (
-                <div className="mt-6 rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-5">
-                  <div className="flex items-center justify-between">
+
+              <div
+                className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-500 ${isAutoBalanceResultOpen
+                  ? "pointer-events-auto opacity-100"
+                  : "pointer-events-none opacity-0"
+                  }`}
+                onClick={() => setIsAutoBalanceResultOpen(false)}
+              />
+
+              <aside
+                className={`fixed right-0 top-0 z-50 h-screen w-[1180px] max-w-[calc(100vw-16px)] border-l border-slate-800 bg-[#050b14] shadow-2xl transition-transform duration-500 ease-out ${isAutoBalanceResultOpen ? "translate-x-0" : "translate-x-full"
+                  }`}
+              >
+                <button
+                  onClick={() => setIsAutoBalanceResultOpen(!isAutoBalanceResultOpen)}
+                  className="absolute left-[-36px] top-1/2 z-[60] flex h-28 w-9 -translate-y-1/2 items-center justify-center rounded-l-xl border border-r-0 border-emerald-700 bg-emerald-950/90 text-emerald-300 shadow-2xl hover:bg-emerald-900"
+                >
+                  <span className="text-xl font-black">
+                    {isAutoBalanceResultOpen ? "›" : "‹"}
+                  </span>
+                </button>
+                <div className="flex h-full flex-col">
+                  <div className="flex items-center justify-between border-b border-slate-800 bg-[#08111f] px-6 py-5">
                     <div>
                       <p className="text-sm font-bold text-emerald-400">
-                        AI 밸런스 리포트
+                        AI 자동 팀짜기 결과
                       </p>
                       <h3 className="mt-1 text-2xl font-black text-white">
-                        {autoBalanceAnalysis.title}
+                        {autoBalanceAnalysis?.title ?? "밸런스 결과"}
                       </h3>
                     </div>
 
-                    <div className="rounded-xl border border-slate-700 bg-[#07101f] px-4 py-3 text-right">
-                      <p className="text-xs text-slate-400">현재 점수 차이</p>
-                      <p className="mt-1 text-lg font-black text-emerald-300">
-                        {Math.abs(getTeamTotalScore("team1") - getTeamTotalScore("team2"))}점
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 rounded-xl border border-slate-800 bg-[#07101f] p-4">
-                    <p className="text-sm leading-7 text-slate-200">
-                      {autoBalanceAnalysis.summary}
-                    </p>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-3 gap-4">
-                    <div className="rounded-xl border border-emerald-900/50 bg-emerald-950/20 p-4">
-                      <p className="text-sm font-bold text-emerald-300">점수 밸런스</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-300">
-                        {autoBalanceAnalysis.scorePoint}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-blue-900/50 bg-blue-950/20 p-4">
-                      <p className="text-sm font-bold text-blue-300">1팀 포인트</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-300">
-                        {autoBalanceAnalysis.team1Point}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
-                      <p className="text-sm font-bold text-red-300">2팀 포인트</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-300">
-                        {autoBalanceAnalysis.team2Point}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-5 gap-3">
-                    {(autoBalanceAnalysis.lineAnalysis ?? []).map((line) => (
-                      <div
-                        key={`ai-line-analysis-${line.line}`}
-                        className="rounded-xl border border-slate-800 bg-[#07101f] p-4"
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setIsAutoBalanceResultOpen(false);
+                          setAutoBalanceAnalysis(null);
+                        }}
+                        className="rounded-xl border border-slate-700 bg-[#111c2e] px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
                       >
-                        <p className="text-sm font-black text-slate-100">
-                          {line.line}
+                        다시 구성하기
+                      </button>
+
+                      <button
+                        onClick={() => setIsAutoBalanceResultOpen(false)}
+                        className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-700 bg-[#111c2e] text-xl font-black text-slate-300 hover:bg-slate-800"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                    <div className="mb-5 rounded-2xl border border-slate-800 bg-[#0b1424] p-5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-slate-400">밸런스 결과</p>
+                          <p
+                            className={`mt-1 text-2xl font-black ${getTeamTotalScore("team1") === getTeamTotalScore("team2")
+                              ? "text-slate-200"
+                              : getTeamTotalScore("team1") > getTeamTotalScore("team2")
+                                ? "text-blue-400"
+                                : "text-red-400"
+                              }`}
+                          >
+                            {getTeamResultText()}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-700 bg-[#07101f] px-4 py-3 text-right">
+                          <p className="text-xs text-slate-400">현재 점수 차이</p>
+                          <p className="mt-1 text-lg font-black text-emerald-300">
+                            {Math.abs(
+                              getTeamTotalScore("team1") - getTeamTotalScore("team2")
+                            )}
+                            점
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-5">
+                      <div className="rounded-2xl border border-blue-900/60 bg-blue-950/30 p-5">
+                        <div className="mb-5 flex items-center justify-between">
+                          <h4 className="text-lg font-bold text-blue-300">1팀</h4>
+                          <span className="rounded-full bg-blue-900 px-4 py-1 text-sm font-semibold text-blue-200">
+                            총점 {getTeamTotalScore("team1")}
+                          </span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {LINES.map((line) => {
+                            const member = getSlotMember("team1", line);
+                            const score = getSlotScore("team1", line);
+                            const diff = getLineDiff(line);
+
+                            return (
+                              <div
+                                key={`result-team1-${line}`}
+                                className={`rounded-xl border p-4 ${diff > 0
+                                  ? "border-blue-500/60 bg-blue-900/30"
+                                  : "border-slate-800 bg-[#111c2e]"
+                                  }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <span className="rounded-md bg-slate-800 px-3 py-1 text-sm font-bold">
+                                      {line}
+                                    </span>
+
+                                    <div>
+                                      <p className="font-black text-blue-200">
+                                        {teamSlots.team1[line]}
+                                      </p>
+                                      {member && (
+                                        <p className="mt-1 text-xs text-slate-400">
+                                          {member.nickname} · 현재 {member.current_tier} · 주{" "}
+                                          {member.main_line}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <span className="text-sm font-semibold text-blue-300">
+                                    {score}점
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-red-900/60 bg-red-950/30 p-5">
+                        <div className="mb-5 flex items-center justify-between">
+                          <h4 className="text-lg font-bold text-red-300">2팀</h4>
+                          <span className="rounded-full bg-red-900 px-4 py-1 text-sm font-semibold text-red-200">
+                            총점 {getTeamTotalScore("team2")}
+                          </span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {LINES.map((line) => {
+                            const member = getSlotMember("team2", line);
+                            const score = getSlotScore("team2", line);
+                            const diff = getLineDiff(line);
+
+                            return (
+                              <div
+                                key={`result-team2-${line}`}
+                                className={`rounded-xl border p-4 ${diff < 0
+                                  ? "border-red-500/60 bg-red-900/30"
+                                  : "border-slate-800 bg-[#111c2e]"
+                                  }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <span className="rounded-md bg-slate-800 px-3 py-1 text-sm font-bold">
+                                      {line}
+                                    </span>
+
+                                    <div>
+                                      <p className="font-black text-red-200">
+                                        {teamSlots.team2[line]}
+                                      </p>
+                                      {member && (
+                                        <p className="mt-1 text-xs text-slate-400">
+                                          {member.nickname} · 현재 {member.current_tier} · 주{" "}
+                                          {member.main_line}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <span className="text-sm font-semibold text-red-300">
+                                    {score}점
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {autoBalanceAnalysis ? (
+                      <div className="mt-6 rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-5">
+                        <div>
+                          <p className="text-sm font-bold text-emerald-400">
+                            AI 밸런스 리포트
+                          </p>
+                          <h3 className="mt-1 text-2xl font-black text-white">
+                            {autoBalanceAnalysis.title}
+                          </h3>
+                        </div>
+
+                        <div className="mt-5 rounded-xl border border-slate-800 bg-[#07101f] p-4">
+                          <p className="text-sm leading-7 text-slate-200">
+                            {autoBalanceAnalysis.summary}
+                          </p>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-3 gap-4">
+                          <div className="rounded-xl border border-emerald-900/50 bg-emerald-950/20 p-4">
+                            <p className="text-sm font-bold text-emerald-300">
+                              점수 밸런스
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                              {autoBalanceAnalysis.scorePoint}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-blue-900/50 bg-blue-950/20 p-4">
+                            <p className="text-sm font-bold text-blue-300">1팀 포인트</p>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                              {autoBalanceAnalysis.team1Point}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
+                            <p className="text-sm font-bold text-red-300">2팀 포인트</p>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                              {autoBalanceAnalysis.team2Point}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-5 gap-3">
+                          {(autoBalanceAnalysis.lineAnalysis ?? []).map((line) => (
+                            <div
+                              key={`ai-line-analysis-${line.line}`}
+                              className="rounded-xl border border-slate-800 bg-[#07101f] p-4"
+                            >
+                              <p className="text-sm font-black text-slate-100">
+                                {line.line}
+                              </p>
+                              <p className="mt-2 text-sm font-bold text-emerald-300">
+                                {line.title}
+                              </p>
+                              <p className="mt-2 text-xs leading-5 text-slate-400">
+                                {line.content}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="mt-4 rounded-xl border border-yellow-900/50 bg-yellow-950/20 p-4">
+                          <p className="text-sm font-bold text-yellow-300">핵심 변수</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-300">
+                            {autoBalanceAnalysis.keyPoint}
+                          </p>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-2 gap-4">
+                          <div className="rounded-xl border border-blue-900/50 bg-blue-950/20 p-4">
+                            <p className="text-sm font-bold text-blue-300">
+                              1팀 승리 플랜
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                              {autoBalanceAnalysis.winCondition.team1}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
+                            <p className="text-sm font-bold text-red-300">
+                              2팀 승리 플랜
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                              {autoBalanceAnalysis.winCondition.team2}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-6 rounded-2xl border border-yellow-900/60 bg-yellow-950/20 p-5">
+                        <p className="text-sm font-bold text-yellow-300">
+                          AI 분석 결과가 없습니다.
                         </p>
-                        <p className="mt-2 text-sm font-bold text-emerald-300">
-                          {line.title}
-                        </p>
-                        <p className="mt-2 text-xs leading-5 text-slate-400">
-                          {line.content}
+                        <p className="mt-2 text-sm text-slate-400">
+                          팀 배치는 생성됐지만 분석 응답이 비어있거나 실패했습니다.
                         </p>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 rounded-xl border border-yellow-900/50 bg-yellow-950/20 p-4">
-                    <p className="text-sm font-bold text-yellow-300">핵심 변수</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">
-                      {autoBalanceAnalysis.keyPoint}
-                    </p>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    <div className="rounded-xl border border-blue-900/50 bg-blue-950/20 p-4">
-                      <p className="text-sm font-bold text-blue-300">1팀 승리 플랜</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-300">
-                        {autoBalanceAnalysis.winCondition.team1}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
-                      <p className="text-sm font-bold text-red-300">2팀 승리 플랜</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-300">
-                        {autoBalanceAnalysis.winCondition.team2}
-                      </p>
-                    </div>
+                    )}
                   </div>
                 </div>
-              )}
-            </div>
+              </aside>
+            </>
           )}
           {activeMenu === "record" && (
             <div className="rounded-2xl border border-slate-800 bg-[#0b1424] p-6">
