@@ -80,72 +80,152 @@ export const analyzeAutoBalanceTeamsApi = async (
 export type AnalyzeAutoBalanceAramTeamsResponse = {
     teamSlots: Record<TeamKey, string[]>;
     analysis: {
-      title: string;
-      summary: string;
-      scorePoint: string;
-      team1Point: string;
-      team2Point: string;
-      tierPoint: string;
-      keyPoint: string;
-      winCondition: {
-        team1: string;
-        team2: string;
-      };
+        title: string;
+        summary: string;
+        scorePoint: string;
+        team1Point: string;
+        team2Point: string;
+        tierPoint: string;
+        keyPoint: string;
+        winCondition: {
+            team1: string;
+            team2: string;
+        };
     } | null;
     warnings: string[];
-  };
-  
-  export type AutoBalanceAramMember = Member & {
+};
+
+export type AutoBalanceAramMember = Member & {
     aram_score: number;
-  };
-  
-  export const analyzeAutoBalanceAramTeamsApi = async (
+};
+
+export const analyzeAutoBalanceAramTeamsApi = async (
     members: AutoBalanceAramMember[],
     customRequest: string
-  ) => {
+) => {
     const response = await fetch("/api/analyze-auto-balance-aram", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        customRequest,
-        members: members.map((member) => ({
-          id: member.id,
-          name: member.name,
-          nickname: member.nickname,
-          highest_tier: member.highest_tier,
-          current_tier: member.current_tier,
-          main_line: member.main_line,
-          sub_line: member.sub_line,
-          memo: member.memo,
-          aram_score: member.aram_score,
-        })),
-      }),
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            customRequest,
+            members: members.map((member) => ({
+                id: member.id,
+                name: member.name,
+                nickname: member.nickname,
+                highest_tier: member.highest_tier,
+                current_tier: member.current_tier,
+                main_line: member.main_line,
+                sub_line: member.sub_line,
+                memo: member.memo,
+                aram_score: member.aram_score,
+            })),
+        }),
     });
-  
+
     const responseText = await response.text();
-  
+
     if (!responseText) {
-      throw new Error(
-        `AI 증바람 팀짜기 API 응답이 비어있습니다. status=${response.status}`
-      );
+        throw new Error(
+            `AI 증바람 팀짜기 API 응답이 비어있습니다. status=${response.status}`
+        );
     }
-  
+
     let data: AnalyzeAutoBalanceAramTeamsResponse | null = null;
-  
+
     try {
-      data = JSON.parse(responseText) as AnalyzeAutoBalanceAramTeamsResponse;
+        data = JSON.parse(responseText) as AnalyzeAutoBalanceAramTeamsResponse;
     } catch {
-      console.error("AI 증바람 팀짜기 API 원본 응답:", responseText);
-      throw new Error(
-        `AI 증바람 팀짜기 API 응답이 JSON 형식이 아닙니다. status=${response.status}`
-      );
+        console.error("AI 증바람 팀짜기 API 원본 응답:", responseText);
+        throw new Error(
+            `AI 증바람 팀짜기 API 응답이 JSON 형식이 아닙니다. status=${response.status}`
+        );
     }
-  
+
     if (!response.ok) {
-      throw new Error(data.warnings?.[0] ?? "AI 증바람 팀짜기 실패");
+        throw new Error(data.warnings?.[0] ?? "AI 증바람 팀짜기 실패");
     }
-  
+
     return data;
-  };
+};
+
+export type AnalyzeRecordImageResponse = {
+    screenType: "summary" | "detail" | "scoreboard" | "unknown";
+    mode: "canyon" | "aram" | "unknown";
+    confidence: number;
+    title: string;
+    matchResult: "team1" | "team2" | "";
+    team1: {
+        player: string;
+        champion: string;
+        championCandidates: string[];
+        championConfidence: number;
+        championSource: "model" | "openai" | "unknown";
+        championBox: {
+            detected: boolean;
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        };
+        kda: string;
+        gold: string;
+        damage: string;
+        cs: string;
+    }[];
+    team2: {
+        player: string;
+        champion: string;
+        championCandidates: string[];
+        championConfidence: number;
+        championSource: "model" | "openai" | "unknown";
+        championBox: {
+            detected: boolean;
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        };
+        kda: string;
+        gold: string;
+        damage: string;
+        cs: string;
+    }[];
+    warnings: string[];
+};
+
+export const analyzeRecordImageApi = async (imageFile: File) => {
+    const formData = new FormData();
+    formData.append("image", imageFile);
+
+    const response = await fetch("/api/analyze-record-image", {
+        method: "POST",
+        body: formData,
+    });
+
+    const responseText = await response.text();
+
+    if (!responseText) {
+        throw new Error(
+            `전적 이미지 분석 API 응답이 비어있습니다. status=${response.status}`
+        );
+    }
+
+    let data: AnalyzeRecordImageResponse | null = null;
+
+    try {
+        data = JSON.parse(responseText) as AnalyzeRecordImageResponse;
+    } catch {
+        console.error("전적 이미지 분석 API 원본 응답:", responseText);
+        throw new Error(
+            `전적 이미지 분석 API 응답이 JSON 형식이 아닙니다. status=${response.status}`
+        );
+    }
+
+    if (!response.ok) {
+        throw new Error(data.warnings?.[0] ?? "전적 이미지 분석 실패");
+    }
+
+    return data;
+};

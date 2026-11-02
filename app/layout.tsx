@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "롤면 뭐하니",
-  description: "롤면 뭐하니 관리",
+  title: "롤할래요?",
+  description: "롤할래요? 관리",
 };
 
 export default function RootLayout({

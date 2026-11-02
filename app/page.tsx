@@ -70,8 +70,10 @@ import {
 import {
   analyzeAutoBalanceTeamsApi,
   analyzeAutoBalanceAramTeamsApi,
+  analyzeRecordImageApi,
   type AnalyzeAutoBalanceTeamsResponse,
   type AnalyzeAutoBalanceAramTeamsResponse,
+  type AnalyzeRecordImageResponse,
 } from "../features/ai/aiService";
 
 import {
@@ -142,6 +144,9 @@ export default function Home() {
   const [aramAutoBalanceAnalysis, setAramAutoBalanceAnalysis] =
     useState<AnalyzeAutoBalanceAramTeamsResponse["analysis"] | null>(null);
 
+  const [isAnalyzingRecordImage, setIsAnalyzingRecordImage] = useState(false);
+  const [recordImageAnalysis, setRecordImageAnalysis] =
+    useState<AnalyzeRecordImageResponse | null>(null);
   const [editingMemberId, setEditingMemberId] = useState("");
   const [editName, setEditName] = useState("");
   const [editNickname, setEditNickname] = useState("");
@@ -1030,6 +1035,116 @@ export default function Home() {
     return getChampionImageUrl(ddragonVersion, champion.image);
   };
 
+  const analyzeRecordImage = async (imageFile: File | null) => {
+    if (!imageFile) {
+      return;
+    }
+
+    try {
+      setIsAnalyzingRecordImage(true);
+      setRecordImageAnalysis(null);
+
+      const result = await analyzeRecordImageApi(imageFile);
+
+      setRecordImageAnalysis(result);
+
+      if (result.warnings.length > 0) {
+        alert(result.warnings[0]);
+      }
+    } catch (error) {
+      console.error("전적 이미지 분석 실패:", error);
+
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert("전적 이미지 분석 실패");
+      }
+    } finally {
+      setIsAnalyzingRecordImage(false);
+    }
+  };
+
+  const applyRecordImageAnalysisToCanyonRecord = () => {
+    if (!recordImageAnalysis) {
+      return;
+    }
+
+    const team1Slots = recordImageAnalysis.team1.slice(0, 5);
+    const team2Slots = recordImageAnalysis.team2.slice(0, 5);
+
+    setRecordSlots({
+      team1: {
+        탑: {
+          player: team1Slots[0]?.player ?? "",
+          champion: team1Slots[0]?.champion ?? "",
+        },
+        정글: {
+          player: team1Slots[1]?.player ?? "",
+          champion: team1Slots[1]?.champion ?? "",
+        },
+        미드: {
+          player: team1Slots[2]?.player ?? "",
+          champion: team1Slots[2]?.champion ?? "",
+        },
+        원딜: {
+          player: team1Slots[3]?.player ?? "",
+          champion: team1Slots[3]?.champion ?? "",
+        },
+        서폿: {
+          player: team1Slots[4]?.player ?? "",
+          champion: team1Slots[4]?.champion ?? "",
+        },
+      },
+      team2: {
+        탑: {
+          player: team2Slots[0]?.player ?? "",
+          champion: team2Slots[0]?.champion ?? "",
+        },
+        정글: {
+          player: team2Slots[1]?.player ?? "",
+          champion: team2Slots[1]?.champion ?? "",
+        },
+        미드: {
+          player: team2Slots[2]?.player ?? "",
+          champion: team2Slots[2]?.champion ?? "",
+        },
+        원딜: {
+          player: team2Slots[3]?.player ?? "",
+          champion: team2Slots[3]?.champion ?? "",
+        },
+        서폿: {
+          player: team2Slots[4]?.player ?? "",
+          champion: team2Slots[4]?.champion ?? "",
+        },
+      },
+    });
+
+    if (recordImageAnalysis.matchResult) {
+      setMatchResult(recordImageAnalysis.matchResult);
+    }
+  };
+
+  const applyRecordImageAnalysisToAramRecord = () => {
+    if (!recordImageAnalysis) {
+      return;
+    }
+
+    setAramRecordSlots({
+      team1: recordImageAnalysis.team1.slice(0, 5).map((slot) => ({
+        player: slot.player,
+        champion: slot.champion,
+      })),
+      team2: recordImageAnalysis.team2.slice(0, 5).map((slot) => ({
+        player: slot.player,
+        champion: slot.champion,
+      })),
+    });
+
+    if (recordImageAnalysis.matchResult) {
+      setAramMatchResult(recordImageAnalysis.matchResult);
+    }
+  };
+
   useEffect(() => {
     const savedSession = getLoginSessionCookie();
 
@@ -1363,7 +1478,7 @@ export default function Home() {
       <main className="flex min-h-screen items-center justify-center bg-[#050b14] px-6 text-white">
         <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-[#0b1424] p-8 shadow-2xl">
           <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold">롤면 뭐하니</h1>
+            <h1 className="text-3xl font-bold">롤할래요?</h1>
             <p className="mt-2 text-sm text-slate-400">
               아이디와 비밀번호를 입력하세요.
             </p>
@@ -1431,7 +1546,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#050b14] text-white">
       <div className="flex min-h-screen">
         <aside className="w-64 border-r border-slate-800 bg-[#08111f] p-6">
-          <h1 className="text-2xl font-bold">롤면 뭐하니</h1>
+          <h1 className="text-2xl font-bold">롤할래요?</h1>
           <p className="mt-1 text-sm text-slate-400">모임원 관리</p>
 
           <div className="mt-5 rounded-xl border border-slate-800 bg-[#0b1424] p-3">
@@ -1520,7 +1635,7 @@ export default function Home() {
                 <div>
                   <h2 className="text-3xl font-bold">모임원 리스트</h2>
                   <p className="mt-2 text-slate-400">
-                    롤면 뭐하니 모임원 관리 화면
+                    롤할래요? 모임원 관리 화면
                   </p>
                 </div>
 
@@ -2628,6 +2743,20 @@ export default function Home() {
                 </div>
 
                 <div className="flex gap-3">
+                  <label className="cursor-pointer rounded-lg bg-purple-600 px-5 py-3 font-semibold hover:bg-purple-500">
+                    {isAnalyzingRecordImage ? "이미지 분석 중..." : "전적 이미지 분석"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isAnalyzingRecordImage}
+                      onChange={(e) => {
+                        analyzeRecordImage(e.target.files?.[0] ?? null);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+
                   <button
                     onClick={importBalanceToRecord}
                     className="rounded-lg bg-blue-600 px-5 py-3 font-semibold hover:bg-blue-500"
@@ -2635,12 +2764,103 @@ export default function Home() {
                     협곡 내전 밸런스 정보 가져오기
                   </button>
 
+
                   <button
                     onClick={saveMatchRecord}
                     className="rounded-lg bg-green-600 px-5 py-3 font-semibold hover:bg-green-500"
                   >
                     저장하기
                   </button>
+
+                  {recordImageAnalysis && activeMenu === "record" && (
+                    <div className="mt-6 rounded-2xl border border-purple-900/60 bg-purple-950/20 p-5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-bold text-purple-300">
+                            전적 이미지 분석 결과
+                          </h3>
+                          <p className="mt-1 text-sm text-slate-400">
+                            모드: {recordImageAnalysis.mode} · 화면 유형:{" "}
+                            {recordImageAnalysis.screenType} · 신뢰도:{" "}
+                            {Math.round(recordImageAnalysis.confidence * 100)}%
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={applyRecordImageAnalysisToCanyonRecord}
+                          className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-bold hover:bg-purple-500"
+                        >
+                          협곡 기록에 적용
+                        </button>
+                      </div>
+
+                      {recordImageAnalysis.title && (
+                        <div className="mt-4 rounded-xl border border-slate-700 bg-[#07101f] px-4 py-3 text-sm text-slate-200">
+                          제목: {recordImageAnalysis.title}
+                        </div>
+                      )}
+
+                      {recordImageAnalysis.warnings.length > 0 && (
+                        <div className="mt-4 rounded-xl border border-yellow-700/50 bg-yellow-950/20 p-3 text-sm text-yellow-200">
+                          {recordImageAnalysis.warnings.map((warning, index) => (
+                            <p key={`record-image-warning-${index}`}>- {warning}</p>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="mt-5 grid grid-cols-2 gap-4">
+                        <div className="rounded-xl border border-blue-900/60 bg-blue-950/20 p-4">
+                          <h4 className="mb-3 font-bold text-blue-300">1팀</h4>
+
+                          <div className="space-y-2 text-sm">
+                            {recordImageAnalysis.team1.map((slot, index) => (
+                              <div
+                                key={`record-image-team1-${index}`}
+                                className="rounded-lg border border-slate-800 bg-[#07101f] p-3"
+                              >
+                                <p className="font-bold text-slate-100">
+                                  {index + 1}. {slot.player || "이름 미확정"}
+                                </p>
+                                <p className="mt-1 text-slate-300">
+                                  챔피언: {slot.champion || "미확정"} · KDA:{" "}
+                                  {slot.kda || "-"}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  골드 {slot.gold || "-"} · 딜량 {slot.damage || "-"} · CS{" "}
+                                  {slot.cs || "-"} · 출처 {slot.championSource}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-red-900/60 bg-red-950/20 p-4">
+                          <h4 className="mb-3 font-bold text-red-300">2팀</h4>
+
+                          <div className="space-y-2 text-sm">
+                            {recordImageAnalysis.team2.map((slot, index) => (
+                              <div
+                                key={`record-image-team2-${index}`}
+                                className="rounded-lg border border-slate-800 bg-[#07101f] p-3"
+                              >
+                                <p className="font-bold text-slate-100">
+                                  {index + 1}. {slot.player || "이름 미확정"}
+                                </p>
+                                <p className="mt-1 text-slate-300">
+                                  챔피언: {slot.champion || "미확정"} · KDA:{" "}
+                                  {slot.kda || "-"}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  골드 {slot.gold || "-"} · 딜량 {slot.damage || "-"} · CS{" "}
+                                  {slot.cs || "-"} · 출처 {slot.championSource}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <datalist id="record-member-list">
@@ -2921,451 +3141,440 @@ export default function Home() {
             </div>
           )}
 
-{activeMenu === "aramBalance" && (
-  <>
-    <div className="rounded-2xl border border-slate-800 bg-[#0b1424] p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold">증바람 내전 밸런스</h2>
-          <p className="mt-2 text-slate-400">
-            참여자 10명을 선택하고 추가 주문 사항을 반영해 라인 없이 5대5 팀을 구성합니다.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={autoBalanceAramTeams}
-            disabled={!canAramAutoBalanceTeams || isAramAutoBalancing}
-            className={`h-[74px] w-[180px] rounded-xl px-5 py-3 font-semibold ${
-              canAramAutoBalanceTeams && !isAramAutoBalancing
-                ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                : "cursor-not-allowed bg-slate-700 text-slate-400"
-            }`}
-          >
-            {isAramAutoBalancing
-              ? aramAutoBalancePhase || "AI 팀짜는 중..."
-              : "AI 자동 팀짜기"}
-          </button>
-
-          {aramAutoBalanceAnalysis && (
-            <button
-              onClick={() => setIsAramAutoBalanceResultOpen(true)}
-              className="h-[74px] rounded-xl border border-emerald-700 bg-emerald-950/40 px-5 py-3 text-sm font-bold text-emerald-300 hover:bg-emerald-900/40"
-            >
-              결과 다시 보기
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-6 grid grid-cols-2 gap-5">
-        <div className="flex h-[500px] flex-col rounded-2xl border border-slate-800 bg-[#07101f] p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold">참여자 검색</h3>
-              <p className="mt-1 text-sm text-slate-400">
-                이름, 닉네임, 티어로 검색 후 참가 버튼을 누르세요.
-              </p>
-
-              {aramAutoBalanceErrorMessage && (
-                <p className="mt-2 text-sm font-semibold text-red-400">
-                  {aramAutoBalanceErrorMessage}
-                </p>
-              )}
-            </div>
-
-            <span className="rounded-full bg-slate-800 px-4 py-1 text-sm font-bold text-slate-300">
-              {aramAutoBalanceSelectedMembers.length}/10
-            </span>
-          </div>
-
-          <input
-            className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
-            placeholder="참여자 검색"
-            value={aramAutoBalanceSearchName}
-            onChange={(e) => setAramAutoBalanceSearchName(e.target.value)}
-          />
-
-          <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-            {filteredAramAutoBalanceMembers.slice(0, 20).map((member) => (
-              <div
-                key={`aram-auto-balance-search-${member.id}`}
-                className="flex items-center justify-between rounded-xl border border-slate-800 bg-[#111c2e] p-3 transition-all duration-300 hover:translate-x-1 hover:border-blue-500/60"
-              >
-                <div>
-                  <p className="font-bold text-slate-100">{member.name}</p>
-                  <p className="text-sm text-slate-400">{member.nickname}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    현재 {member.current_tier} · 최고 {member.highest_tier} · 증바 점수{" "}
-                    {calculateAramMemberScore(member)}
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => addAramAutoBalanceMember(member)}
-                  disabled={aramAutoBalanceSelectedMembers.length >= 10}
-                  className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
-                    aramAutoBalanceSelectedMembers.length < 10
-                      ? "bg-blue-600 text-white hover:bg-blue-500"
-                      : "cursor-not-allowed bg-slate-700 text-slate-400"
-                  }`}
-                >
-                  참가
-                </button>
-              </div>
-            ))}
-
-            {filteredAramAutoBalanceMembers.length === 0 && (
-              <div className="rounded-xl border border-slate-800 bg-[#111c2e] p-5 text-center text-sm text-slate-400">
-                검색 결과가 없습니다.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex h-[500px] flex-col rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-emerald-300">
-                참여자 목록
-              </h3>
-              <p className="mt-1 text-sm text-slate-400">
-                선택된 10명 기준으로 증바람 팀을 구성합니다.
-              </p>
-            </div>
-
-            {aramAutoBalanceSelectedMembers.length > 0 && (
-              <button
-                onClick={() => {
-                  setAramAutoBalanceSelectedMembers([]);
-                  setAramAutoBalanceAnalysis(null);
-                  setIsAramAutoBalanceResultOpen(false);
-                }}
-                className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800"
-              >
-                전체 삭제
-              </button>
-            )}
-          </div>
-
-          <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-2 overflow-y-auto pr-1 [grid-auto-rows:74px]">
-            {aramAutoBalanceSelectedMembers.map((member, index) => (
-              <div
-                key={`aram-auto-balance-selected-${member.id}`}
-                className="flex h-[74px] animate-[slideIn_0.25s_ease-out] items-center justify-between rounded-xl border border-emerald-800/60 bg-[#102417] p-3 transition-all duration-300"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-sm font-black text-white">
-                    {index + 1}
-                  </span>
-
+          {activeMenu === "aramBalance" && (
+            <>
+              <div className="rounded-2xl border border-slate-800 bg-[#0b1424] p-6">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-bold text-white">{member.name}</p>
-                    <p className="text-sm text-emerald-200">
-                      {member.nickname}
+                    <h2 className="text-3xl font-bold">증바람 내전 밸런스</h2>
+                    <p className="mt-2 text-slate-400">
+                      참여자 10명을 선택하고 추가 주문 사항을 반영해 라인 없이 5대5 팀을 구성합니다.
                     </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={autoBalanceAramTeams}
+                      disabled={!canAramAutoBalanceTeams || isAramAutoBalancing}
+                      className={`h-[74px] w-[180px] rounded-xl px-5 py-3 font-semibold ${canAramAutoBalanceTeams && !isAramAutoBalancing
+                        ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                        : "cursor-not-allowed bg-slate-700 text-slate-400"
+                        }`}
+                    >
+                      {isAramAutoBalancing
+                        ? aramAutoBalancePhase || "AI 팀짜는 중..."
+                        : "AI 자동 팀짜기"}
+                    </button>
+
+                    {aramAutoBalanceAnalysis && (
+                      <button
+                        onClick={() => setIsAramAutoBalanceResultOpen(true)}
+                        className="h-[74px] rounded-xl border border-emerald-700 bg-emerald-950/40 px-5 py-3 text-sm font-bold text-emerald-300 hover:bg-emerald-900/40"
+                      >
+                        결과 다시 보기
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <button
-                  onClick={() => removeAramAutoBalanceMember(member.id)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-red-500/60 bg-red-950/40 text-sm font-black text-red-300 hover:bg-red-900"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+                <div className="mt-6 grid grid-cols-2 gap-5">
+                  <div className="flex h-[500px] flex-col rounded-2xl border border-slate-800 bg-[#07101f] p-5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold">참여자 검색</h3>
+                        <p className="mt-1 text-sm text-slate-400">
+                          이름, 닉네임, 티어로 검색 후 참가 버튼을 누르세요.
+                        </p>
 
-            {aramAutoBalanceSelectedMembers.length === 0 && (
-              <div className="col-span-2 flex h-full items-center justify-center rounded-xl border border-dashed border-slate-700 text-sm text-slate-500">
-                왼쪽에서 참가 버튼을 누르면 여기에 추가됩니다.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+                        {aramAutoBalanceErrorMessage && (
+                          <p className="mt-2 text-sm font-semibold text-red-400">
+                            {aramAutoBalanceErrorMessage}
+                          </p>
+                        )}
+                      </div>
 
-      <div className="mt-8 rounded-2xl border border-slate-800 bg-[#07101f] p-5">
-        <label className="mb-3 block text-lg font-bold">추가 주문 사항</label>
-        <textarea
-          className="min-h-[120px] w-full resize-none rounded-xl border border-slate-700 bg-[#111c2e] px-4 py-3 text-sm outline-none"
-          placeholder={`예시)\n- 홍길동과 김철수는 같은 팀으로 보내줘\n- 박영희는 1팀으로 보내줘\n- 이 두 사람은 서로 다른 팀으로 나눠줘\n- 상위 티어가 한 팀에 몰리지 않게 해줘`}
-          value={aramAutoBalanceCustomRequest}
-          onChange={(e) => {
-            setAramAutoBalanceCustomRequest(e.target.value);
-            setAramAutoBalanceAnalysis(null);
-            setIsAramAutoBalanceResultOpen(false);
-          }}
-        />
+                      <span className="rounded-full bg-slate-800 px-4 py-1 text-sm font-bold text-slate-300">
+                        {aramAutoBalanceSelectedMembers.length}/10
+                      </span>
+                    </div>
 
-        <p className="mt-2 text-xs text-slate-500">
-          증바람은 라인 구분 없이 티어와 점수를 기준으로 팀을 나눕니다.
-        </p>
-      </div>
-    </div>
+                    <input
+                      className="w-full rounded-lg border border-slate-700 bg-[#111c2e] px-4 py-3 outline-none"
+                      placeholder="참여자 검색"
+                      value={aramAutoBalanceSearchName}
+                      onChange={(e) => setAramAutoBalanceSearchName(e.target.value)}
+                    />
 
-    <div
-      className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-500 ${
-        isAramAutoBalanceResultOpen
-          ? "pointer-events-auto opacity-100"
-          : "pointer-events-none opacity-0"
-      }`}
-      onClick={() => setIsAramAutoBalanceResultOpen(false)}
-    />
-
-    <aside
-      className={`fixed right-0 top-0 z-50 h-screen w-[1180px] max-w-[calc(100vw-16px)] border-l border-slate-800 bg-[#050b14] shadow-2xl transition-transform duration-500 ease-out ${
-        isAramAutoBalanceResultOpen ? "translate-x-0" : "translate-x-full"
-      }`}
-    >
-      <button
-        onClick={() =>
-          setIsAramAutoBalanceResultOpen(!isAramAutoBalanceResultOpen)
-        }
-        className="absolute left-[-36px] top-1/2 z-[60] flex h-28 w-9 -translate-y-1/2 items-center justify-center rounded-l-xl border border-r-0 border-emerald-700 bg-emerald-950/90 text-emerald-300 shadow-2xl hover:bg-emerald-900"
-      >
-        <span className="text-xl font-black">
-          {isAramAutoBalanceResultOpen ? "›" : "‹"}
-        </span>
-      </button>
-
-      <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-slate-800 bg-[#08111f] px-6 py-5">
-          <div>
-            <p className="text-sm font-bold text-emerald-400">
-              AI 증바람 팀짜기 결과
-            </p>
-            <h3 className="mt-1 text-2xl font-black text-white">
-              {aramAutoBalanceAnalysis?.title ?? "증바람 밸런스 결과"}
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setIsAramAutoBalanceResultOpen(false);
-                setAramAutoBalanceAnalysis(null);
-              }}
-              className="rounded-xl border border-slate-700 bg-[#111c2e] px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
-            >
-              다시 구성하기
-            </button>
-
-            <button
-              onClick={() => setIsAramAutoBalanceResultOpen(false)}
-              className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-700 bg-[#111c2e] text-xl font-black text-slate-300 hover:bg-slate-800"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto p-6">
-          <div className="mb-5 rounded-2xl border border-slate-800 bg-[#0b1424] p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-bold text-slate-400">밸런스 결과</p>
-                <p
-                  className={`mt-1 text-2xl font-black ${
-                    getAramTeamTotalScore("team1") ===
-                    getAramTeamTotalScore("team2")
-                      ? "text-slate-200"
-                      : getAramTeamTotalScore("team1") >
-                          getAramTeamTotalScore("team2")
-                        ? "text-blue-400"
-                        : "text-red-400"
-                  }`}
-                >
-                  {getAramTeamResultText()}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-700 bg-[#07101f] px-4 py-3 text-right">
-                <p className="text-xs text-slate-400">현재 점수 차이</p>
-                <p className="mt-1 text-lg font-black text-emerald-300">
-                  {Math.abs(
-                    getAramTeamTotalScore("team1") -
-                      getAramTeamTotalScore("team2")
-                  )}
-                  점
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-5">
-            {(["team1", "team2"] as TeamKey[]).map((team) => (
-              <div
-                key={`aram-result-${team}`}
-                className={`rounded-2xl border p-5 ${
-                  team === "team1"
-                    ? "border-blue-900/60 bg-blue-950/30"
-                    : "border-red-900/60 bg-red-950/30"
-                }`}
-              >
-                <div className="mb-5 flex items-center justify-between">
-                  <h4
-                    className={`text-lg font-bold ${
-                      team === "team1" ? "text-blue-300" : "text-red-300"
-                    }`}
-                  >
-                    {team === "team1" ? "1팀" : "2팀"}
-                  </h4>
-
-                  <span
-                    className={`rounded-full px-4 py-1 text-sm font-semibold ${
-                      team === "team1"
-                        ? "bg-blue-900 text-blue-200"
-                        : "bg-red-900 text-red-200"
-                    }`}
-                  >
-                    총점 {getAramTeamTotalScore(team)}
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  {aramTeamSlots[team].map((value, index) => {
-                    const member = getAramSlotMember(team, index);
-                    const score = getAramSlotScore(team, index);
-                    const isAce = getAramAceIndex(team) === index;
-
-                    return (
-                      <div
-                        key={`aram-result-${team}-${index}`}
-                        className={`rounded-xl border p-4 ${
-                          isAce
-                            ? "border-yellow-400 bg-yellow-500/15"
-                            : "border-slate-800 bg-[#111c2e]"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
+                    <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                      {filteredAramAutoBalanceMembers.slice(0, 20).map((member) => (
+                        <div
+                          key={`aram-auto-balance-search-${member.id}`}
+                          className="flex items-center justify-between rounded-xl border border-slate-800 bg-[#111c2e] p-3 transition-all duration-300 hover:translate-x-1 hover:border-blue-500/60"
+                        >
                           <div>
-                            <div className="flex items-center gap-2">
-                              <p
-                                className={`font-black ${
-                                  team === "team1"
-                                    ? "text-blue-200"
-                                    : "text-red-200"
-                                }`}
-                              >
-                                {value}
-                              </p>
-
-                              {isAce && (
-                                <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-xs font-black text-black">
-                                  ACE
-                                </span>
-                              )}
-                            </div>
-
-                            {member && (
-                              <p className="mt-1 text-xs text-slate-400">
-                                {member.nickname} · 현재 {member.current_tier} · 최고{" "}
-                                {member.highest_tier}
-                              </p>
-                            )}
+                            <p className="font-bold text-slate-100">{member.name}</p>
+                            <p className="text-sm text-slate-400">{member.nickname}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              현재 {member.current_tier} · 최고 {member.highest_tier} · 증바 점수{" "}
+                              {calculateAramMemberScore(member)}
+                            </p>
                           </div>
 
-                          <span
-                            className={`text-sm font-semibold ${
-                              team === "team1"
-                                ? "text-blue-300"
-                                : "text-red-300"
-                            }`}
+                          <button
+                            onClick={() => addAramAutoBalanceMember(member)}
+                            disabled={aramAutoBalanceSelectedMembers.length >= 10}
+                            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${aramAutoBalanceSelectedMembers.length < 10
+                              ? "bg-blue-600 text-white hover:bg-blue-500"
+                              : "cursor-not-allowed bg-slate-700 text-slate-400"
+                              }`}
                           >
-                            {score}점
-                          </span>
+                            참가
+                          </button>
+                        </div>
+                      ))}
+
+                      {filteredAramAutoBalanceMembers.length === 0 && (
+                        <div className="rounded-xl border border-slate-800 bg-[#111c2e] p-5 text-center text-sm text-slate-400">
+                          검색 결과가 없습니다.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex h-[500px] flex-col rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-emerald-300">
+                          참여자 목록
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-400">
+                          선택된 10명 기준으로 증바람 팀을 구성합니다.
+                        </p>
+                      </div>
+
+                      {aramAutoBalanceSelectedMembers.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setAramAutoBalanceSelectedMembers([]);
+                            setAramAutoBalanceAnalysis(null);
+                            setIsAramAutoBalanceResultOpen(false);
+                          }}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800"
+                        >
+                          전체 삭제
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-2 overflow-y-auto pr-1 [grid-auto-rows:74px]">
+                      {aramAutoBalanceSelectedMembers.map((member, index) => (
+                        <div
+                          key={`aram-auto-balance-selected-${member.id}`}
+                          className="flex h-[74px] animate-[slideIn_0.25s_ease-out] items-center justify-between rounded-xl border border-emerald-800/60 bg-[#102417] p-3 transition-all duration-300"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-sm font-black text-white">
+                              {index + 1}
+                            </span>
+
+                            <div>
+                              <p className="font-bold text-white">{member.name}</p>
+                              <p className="text-sm text-emerald-200">
+                                {member.nickname}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => removeAramAutoBalanceMember(member.id)}
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-red-500/60 bg-red-950/40 text-sm font-black text-red-300 hover:bg-red-900"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+
+                      {aramAutoBalanceSelectedMembers.length === 0 && (
+                        <div className="col-span-2 flex h-full items-center justify-center rounded-xl border border-dashed border-slate-700 text-sm text-slate-500">
+                          왼쪽에서 참가 버튼을 누르면 여기에 추가됩니다.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 rounded-2xl border border-slate-800 bg-[#07101f] p-5">
+                  <label className="mb-3 block text-lg font-bold">추가 주문 사항</label>
+                  <textarea
+                    className="min-h-[120px] w-full resize-none rounded-xl border border-slate-700 bg-[#111c2e] px-4 py-3 text-sm outline-none"
+                    placeholder={`예시)\n- 홍길동과 김철수는 같은 팀으로 보내줘\n- 박영희는 1팀으로 보내줘\n- 이 두 사람은 서로 다른 팀으로 나눠줘\n- 상위 티어가 한 팀에 몰리지 않게 해줘`}
+                    value={aramAutoBalanceCustomRequest}
+                    onChange={(e) => {
+                      setAramAutoBalanceCustomRequest(e.target.value);
+                      setAramAutoBalanceAnalysis(null);
+                      setIsAramAutoBalanceResultOpen(false);
+                    }}
+                  />
+
+                  <p className="mt-2 text-xs text-slate-500">
+                    증바람은 라인 구분 없이 티어와 점수를 기준으로 팀을 나눕니다.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-500 ${isAramAutoBalanceResultOpen
+                  ? "pointer-events-auto opacity-100"
+                  : "pointer-events-none opacity-0"
+                  }`}
+                onClick={() => setIsAramAutoBalanceResultOpen(false)}
+              />
+
+              <aside
+                className={`fixed right-0 top-0 z-50 h-screen w-[1180px] max-w-[calc(100vw-16px)] border-l border-slate-800 bg-[#050b14] shadow-2xl transition-transform duration-500 ease-out ${isAramAutoBalanceResultOpen ? "translate-x-0" : "translate-x-full"
+                  }`}
+              >
+                <button
+                  onClick={() =>
+                    setIsAramAutoBalanceResultOpen(!isAramAutoBalanceResultOpen)
+                  }
+                  className="absolute left-[-36px] top-1/2 z-[60] flex h-28 w-9 -translate-y-1/2 items-center justify-center rounded-l-xl border border-r-0 border-emerald-700 bg-emerald-950/90 text-emerald-300 shadow-2xl hover:bg-emerald-900"
+                >
+                  <span className="text-xl font-black">
+                    {isAramAutoBalanceResultOpen ? "›" : "‹"}
+                  </span>
+                </button>
+
+                <div className="flex h-full flex-col">
+                  <div className="flex items-center justify-between border-b border-slate-800 bg-[#08111f] px-6 py-5">
+                    <div>
+                      <p className="text-sm font-bold text-emerald-400">
+                        AI 증바람 팀짜기 결과
+                      </p>
+                      <h3 className="mt-1 text-2xl font-black text-white">
+                        {aramAutoBalanceAnalysis?.title ?? "증바람 밸런스 결과"}
+                      </h3>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setIsAramAutoBalanceResultOpen(false);
+                          setAramAutoBalanceAnalysis(null);
+                        }}
+                        className="rounded-xl border border-slate-700 bg-[#111c2e] px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                      >
+                        다시 구성하기
+                      </button>
+
+                      <button
+                        onClick={() => setIsAramAutoBalanceResultOpen(false)}
+                        className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-700 bg-[#111c2e] text-xl font-black text-slate-300 hover:bg-slate-800"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                    <div className="mb-5 rounded-2xl border border-slate-800 bg-[#0b1424] p-5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-slate-400">밸런스 결과</p>
+                          <p
+                            className={`mt-1 text-2xl font-black ${getAramTeamTotalScore("team1") ===
+                              getAramTeamTotalScore("team2")
+                              ? "text-slate-200"
+                              : getAramTeamTotalScore("team1") >
+                                getAramTeamTotalScore("team2")
+                                ? "text-blue-400"
+                                : "text-red-400"
+                              }`}
+                          >
+                            {getAramTeamResultText()}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-700 bg-[#07101f] px-4 py-3 text-right">
+                          <p className="text-xs text-slate-400">현재 점수 차이</p>
+                          <p className="mt-1 text-lg font-black text-emerald-300">
+                            {Math.abs(
+                              getAramTeamTotalScore("team1") -
+                              getAramTeamTotalScore("team2")
+                            )}
+                            점
+                          </p>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-5">
+                      {(["team1", "team2"] as TeamKey[]).map((team) => (
+                        <div
+                          key={`aram-result-${team}`}
+                          className={`rounded-2xl border p-5 ${team === "team1"
+                            ? "border-blue-900/60 bg-blue-950/30"
+                            : "border-red-900/60 bg-red-950/30"
+                            }`}
+                        >
+                          <div className="mb-5 flex items-center justify-between">
+                            <h4
+                              className={`text-lg font-bold ${team === "team1" ? "text-blue-300" : "text-red-300"
+                                }`}
+                            >
+                              {team === "team1" ? "1팀" : "2팀"}
+                            </h4>
+
+                            <span
+                              className={`rounded-full px-4 py-1 text-sm font-semibold ${team === "team1"
+                                ? "bg-blue-900 text-blue-200"
+                                : "bg-red-900 text-red-200"
+                                }`}
+                            >
+                              총점 {getAramTeamTotalScore(team)}
+                            </span>
+                          </div>
+
+                          <div className="space-y-3">
+                            {aramTeamSlots[team].map((value, index) => {
+                              const member = getAramSlotMember(team, index);
+                              const score = getAramSlotScore(team, index);
+                              const isAce = getAramAceIndex(team) === index;
+
+                              return (
+                                <div
+                                  key={`aram-result-${team}-${index}`}
+                                  className={`rounded-xl border p-4 ${isAce
+                                    ? "border-yellow-400 bg-yellow-500/15"
+                                    : "border-slate-800 bg-[#111c2e]"
+                                    }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <p
+                                          className={`font-black ${team === "team1"
+                                            ? "text-blue-200"
+                                            : "text-red-200"
+                                            }`}
+                                        >
+                                          {value}
+                                        </p>
+
+                                        {isAce && (
+                                          <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-xs font-black text-black">
+                                            ACE
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {member && (
+                                        <p className="mt-1 text-xs text-slate-400">
+                                          {member.nickname} · 현재 {member.current_tier} · 최고{" "}
+                                          {member.highest_tier}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <span
+                                      className={`text-sm font-semibold ${team === "team1"
+                                        ? "text-blue-300"
+                                        : "text-red-300"
+                                        }`}
+                                    >
+                                      {score}점
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {aramAutoBalanceAnalysis && (
+                      <div className="mt-6 rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-5">
+                        <div>
+                          <p className="text-sm font-bold text-emerald-400">
+                            AI 증바람 밸런스 리포트
+                          </p>
+                          <h3 className="mt-1 text-2xl font-black text-white">
+                            {aramAutoBalanceAnalysis.title}
+                          </h3>
+                        </div>
+
+                        <div className="mt-5 rounded-xl border border-slate-800 bg-[#07101f] p-4">
+                          <p className="text-sm leading-7 text-slate-200">
+                            {aramAutoBalanceAnalysis.summary}
+                          </p>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-4 gap-4">
+                          <div className="rounded-xl border border-emerald-900/50 bg-emerald-950/20 p-4">
+                            <p className="text-sm font-bold text-emerald-300">
+                              점수 밸런스
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                              {aramAutoBalanceAnalysis.scorePoint}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-blue-900/50 bg-blue-950/20 p-4">
+                            <p className="text-sm font-bold text-blue-300">1팀 포인트</p>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                              {aramAutoBalanceAnalysis.team1Point}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
+                            <p className="text-sm font-bold text-red-300">2팀 포인트</p>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                              {aramAutoBalanceAnalysis.team2Point}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-purple-900/50 bg-purple-950/20 p-4">
+                            <p className="text-sm font-bold text-purple-300">티어 분포</p>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                              {aramAutoBalanceAnalysis.tierPoint}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 rounded-xl border border-yellow-900/50 bg-yellow-950/20 p-4">
+                          <p className="text-sm font-bold text-yellow-300">핵심 변수</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-300">
+                            {aramAutoBalanceAnalysis.keyPoint}
+                          </p>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-2 gap-4">
+                          <div className="rounded-xl border border-blue-900/50 bg-blue-950/20 p-4">
+                            <p className="text-sm font-bold text-blue-300">
+                              1팀 승리 플랜
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                              {aramAutoBalanceAnalysis.winCondition.team1}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
+                            <p className="text-sm font-bold text-red-300">
+                              2팀 승리 플랜
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                              {aramAutoBalanceAnalysis.winCondition.team2}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {aramAutoBalanceAnalysis && (
-            <div className="mt-6 rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-5">
-              <div>
-                <p className="text-sm font-bold text-emerald-400">
-                  AI 증바람 밸런스 리포트
-                </p>
-                <h3 className="mt-1 text-2xl font-black text-white">
-                  {aramAutoBalanceAnalysis.title}
-                </h3>
-              </div>
-
-              <div className="mt-5 rounded-xl border border-slate-800 bg-[#07101f] p-4">
-                <p className="text-sm leading-7 text-slate-200">
-                  {aramAutoBalanceAnalysis.summary}
-                </p>
-              </div>
-
-              <div className="mt-4 grid grid-cols-4 gap-4">
-                <div className="rounded-xl border border-emerald-900/50 bg-emerald-950/20 p-4">
-                  <p className="text-sm font-bold text-emerald-300">
-                    점수 밸런스
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    {aramAutoBalanceAnalysis.scorePoint}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-blue-900/50 bg-blue-950/20 p-4">
-                  <p className="text-sm font-bold text-blue-300">1팀 포인트</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    {aramAutoBalanceAnalysis.team1Point}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
-                  <p className="text-sm font-bold text-red-300">2팀 포인트</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    {aramAutoBalanceAnalysis.team2Point}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-purple-900/50 bg-purple-950/20 p-4">
-                  <p className="text-sm font-bold text-purple-300">티어 분포</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    {aramAutoBalanceAnalysis.tierPoint}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-xl border border-yellow-900/50 bg-yellow-950/20 p-4">
-                <p className="text-sm font-bold text-yellow-300">핵심 변수</p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  {aramAutoBalanceAnalysis.keyPoint}
-                </p>
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                <div className="rounded-xl border border-blue-900/50 bg-blue-950/20 p-4">
-                  <p className="text-sm font-bold text-blue-300">
-                    1팀 승리 플랜
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    {aramAutoBalanceAnalysis.winCondition.team1}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
-                  <p className="text-sm font-bold text-red-300">
-                    2팀 승리 플랜
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">
-                    {aramAutoBalanceAnalysis.winCondition.team2}
-                  </p>
-                </div>
-              </div>
-            </div>
+              </aside>
+            </>
           )}
-        </div>
-      </div>
-    </aside>
-  </>
-)}
           {activeMenu === "aramRecord" && (
             <div className="rounded-2xl border border-slate-800 bg-[#0b1424] p-6">
               <div className="flex items-center justify-between">
@@ -3377,6 +3586,20 @@ export default function Home() {
                 </div>
 
                 <div className="flex gap-3">
+                  <label className="cursor-pointer rounded-lg bg-purple-600 px-5 py-3 font-semibold hover:bg-purple-500">
+                    {isAnalyzingRecordImage ? "이미지 분석 중..." : "전적 이미지 분석"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isAnalyzingRecordImage}
+                      onChange={(e) => {
+                        analyzeRecordImage(e.target.files?.[0] ?? null);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+
                   <button
                     onClick={importAramBalanceToRecord}
                     className="rounded-lg bg-blue-600 px-5 py-3 font-semibold hover:bg-blue-500"
@@ -3390,6 +3613,96 @@ export default function Home() {
                   >
                     저장하기
                   </button>
+
+                  {recordImageAnalysis && activeMenu === "aramRecord" && (
+                    <div className="mt-6 rounded-2xl border border-purple-900/60 bg-purple-950/20 p-5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-bold text-purple-300">
+                            전적 이미지 분석 결과
+                          </h3>
+                          <p className="mt-1 text-sm text-slate-400">
+                            모드: {recordImageAnalysis.mode} · 화면 유형:{" "}
+                            {recordImageAnalysis.screenType} · 신뢰도:{" "}
+                            {Math.round(recordImageAnalysis.confidence * 100)}%
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={applyRecordImageAnalysisToAramRecord}
+                          className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-bold hover:bg-purple-500"
+                        >
+                          증바람 기록에 적용
+                        </button>
+                      </div>
+
+                      {recordImageAnalysis.title && (
+                        <div className="mt-4 rounded-xl border border-slate-700 bg-[#07101f] px-4 py-3 text-sm text-slate-200">
+                          제목: {recordImageAnalysis.title}
+                        </div>
+                      )}
+
+                      {recordImageAnalysis.warnings.length > 0 && (
+                        <div className="mt-4 rounded-xl border border-yellow-700/50 bg-yellow-950/20 p-3 text-sm text-yellow-200">
+                          {recordImageAnalysis.warnings.map((warning, index) => (
+                            <p key={`aram-record-image-warning-${index}`}>- {warning}</p>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="mt-5 grid grid-cols-2 gap-4">
+                        <div className="rounded-xl border border-blue-900/60 bg-blue-950/20 p-4">
+                          <h4 className="mb-3 font-bold text-blue-300">1팀</h4>
+
+                          <div className="space-y-2 text-sm">
+                            {recordImageAnalysis.team1.map((slot, index) => (
+                              <div
+                                key={`aram-record-image-team1-${index}`}
+                                className="rounded-lg border border-slate-800 bg-[#07101f] p-3"
+                              >
+                                <p className="font-bold text-slate-100">
+                                  {index + 1}. {slot.player || "이름 미확정"}
+                                </p>
+                                <p className="mt-1 text-slate-300">
+                                  챔피언: {slot.champion || "미확정"} · KDA:{" "}
+                                  {slot.kda || "-"}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  골드 {slot.gold || "-"} · 딜량 {slot.damage || "-"} · CS{" "}
+                                  {slot.cs || "-"} · 출처 {slot.championSource}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-red-900/60 bg-red-950/20 p-4">
+                          <h4 className="mb-3 font-bold text-red-300">2팀</h4>
+
+                          <div className="space-y-2 text-sm">
+                            {recordImageAnalysis.team2.map((slot, index) => (
+                              <div
+                                key={`aram-record-image-team2-${index}`}
+                                className="rounded-lg border border-slate-800 bg-[#07101f] p-3"
+                              >
+                                <p className="font-bold text-slate-100">
+                                  {index + 1}. {slot.player || "이름 미확정"}
+                                </p>
+                                <p className="mt-1 text-slate-300">
+                                  챔피언: {slot.champion || "미확정"} · KDA:{" "}
+                                  {slot.kda || "-"}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  골드 {slot.gold || "-"} · 딜량 {slot.damage || "-"} · CS{" "}
+                                  {slot.cs || "-"} · 출처 {slot.championSource}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <datalist id="aram-record-member-list">
